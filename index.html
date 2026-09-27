@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spritesheet Studio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Spritesheet Studio</span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Bagian aplikasi">
+    <button class="tab-btn active" data-tab="import" role="tab" aria-selected="true">Import</button>
+    <button class="tab-btn" data-tab="background" role="tab" aria-selected="false">Background</button>
+    <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Spritesheet</button>
+    <button class="tab-btn" data-tab="editor" role="tab" aria-selected="false">Editor</button>
+    <button class="tab-btn" data-tab="merge" role="tab" aria-selected="false">Gabung</button>
+    <button class="tab-btn" data-tab="export" role="tab" aria-selected="false">Export</button>
+  </nav>
+</header>
+
+<main class="app-main">
+
+  <!-- ===================== IMPORT ===================== -->
+  <section class="panel active" id="panel-import" role="tabpanel">
+
+    <div class="dropzone" id="dropzone" tabindex="0">
+      <input type="file" id="fileInput" accept="video/mp4,video/webm,video/quicktime,image/gif,image/png,image/jpeg,image/webp" hidden>
+      <p class="dropzone-title">Seret file ke sini atau ketuk untuk memilih</p>
+      <p class="dropzone-sub">Video (MP4/WebM/MOV) &middot; GIF &middot; PNG/JPG/WebP</p>
+      <button class="btn btn-primary" id="pickFileBtn" type="button">Pilih File</button>
+    </div>
+
+    <div class="card" id="mediaPreviewCard" hidden>
+      <h2 class="card-title">Pratinjau</h2>
+      <div class="media-preview">
+        <video id="videoPreview" controls playsinline hidden></video>
+        <img id="imagePreview" alt="Pratinjau gambar" hidden>
+      </div>
+      <div class="meta-row" id="videoMeta" hidden>
+        <span>Durasi: <b id="metaDuration">-</b></span>
+        <span>Resolusi: <b id="metaResolution">-</b></span>
+        <span>Estimasi frame: <b id="metaEstFrames">-</b></span>
+      </div>
+    </div>
+
+    <!-- Video extraction settings -->
+    <div class="card" id="videoSettingsCard" hidden>
+      <h2 class="card-title">Pengaturan Ekstraksi Video</h2>
+      <div class="grid-2">
+        <label class="field">Mode
+          <select id="extractMode">
+            <option value="fps">Berdasarkan FPS</option>
+            <option value="interval">Berdasarkan Interval (detik)</option>
+          </select>
+        </label>
+        <label class="field" id="fpsField">FPS
+          <input type="number" id="extractFps" value="12" min="1" max="60" step="1">
+        </label>
+        <label class="field" id="intervalField" hidden>Interval (detik)
+          <input type="number" id="extractInterval" value="0.1" min="0.01" step="0.01">
+        </label>
+        <label class="field">Start time (detik)
+          <input type="number" id="extractStart" value="0" min="0" step="0.1">
+        </label>
+        <label class="field">End time (detik, kosongkan = habis)
+          <input type="number" id="extractEnd" step="0.1" placeholder="auto">
+        </label>
+        <label class="field">Maks frame
+          <input type="number" id="extractMaxFrames" value="200" min="1" step="1">
+        </label>
+        <label class="field">Frame width (px)
+          <input type="number" id="extractWidth" value="128" min="1" step="1">
+        </label>
+        <label class="field">Frame height (px)
+          <input type="number" id="extractHeight" value="128" min="1" step="1">
+        </label>
+        <label class="field">Crop / Fit
+          <select id="extractFit">
+            <option value="cover">Cover (crop)</option>
+            <option value="contain">Contain (fit)</option>
+            <option value="stretch">Stretch</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn btn-primary" id="extractVideoBtn" type="button">Ekstrak Frame</button>
+      <div class="progress-wrap" id="videoProgressWrap" hidden>
+        <div class="progress-bar"><div class="progress-fill" id="videoProgressFill"></div></div>
+        <span class="progress-label" id="videoProgressLabel">0 / 0</span>
+      </div>
+    </div>
+
+    <!-- GIF settings -->
+    <div class="card" id="gifSettingsCard" hidden>
+      <h2 class="card-title">Pengaturan GIF</h2>
+      <div class="grid-2">
+        <label class="field">Maks frame
+          <input type="number" id="gifMaxFrames" value="200" min="1" step="1">
+        </label>
+        <label class="field">Frame width (px, kosongkan = asli)
+          <input type="number" id="gifWidth" min="1" step="1" placeholder="asli">
+        </label>
+        <label class="field">Frame height (px, kosongkan = asli)
+          <input type="number" id="gifHeight" min="1" step="1" placeholder="asli">
+        </label>
+        <label class="field">Crop / Fit
+          <select id="gifFit">
+            <option value="cover">Cover (crop)</option>
+            <option value="contain">Contain (fit)</option>
+            <option value="stretch">Stretch</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn btn-primary" id="decodeGifBtn" type="button">Decode GIF</button>
+      <div class="progress-wrap" id="gifProgressWrap" hidden>
+        <div class="progress-bar"><div class="progress-fill" id="gifProgressFill"></div></div>
+        <span class="progress-label" id="gifProgressLabel">0 / 0</span>
+      </div>
+    </div>
+
+    <!-- Image as frame -->
+    <div class="card" id="imageSettingsCard" hidden>
+      <h2 class="card-title">Tambahkan sebagai Frame</h2>
+      <button class="btn btn-primary" id="addImageFrameBtn" type="button">Tambahkan ke Frame</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Frame Saat Ini (<span id="importFrameCount">0</span>)</h2>
+      <div class="frame-strip" id="importFrameStrip"></div>
+    </div>
+  </section>
+
+  <!-- ===================== BACKGROUND ===================== -->
+  <section class="panel" id="panel-background" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Mode Background</h2>
+      <div class="grid-2">
+        <label class="field">Mode
+          <select id="bgMode">
+            <option value="normal">Normal (tidak diubah)</option>
+            <option value="transparent">Hapus warna spesifik</option>
+            <option value="chroma">Chroma Key</option>
+          </select>
+        </label>
+        <label class="field">Warna
+          <input type="color" id="bgColor" value="#00ff00">
+        </label>
+        <label class="field">Tolerance (<span id="bgToleranceVal">40</span>)
+          <input type="range" id="bgTolerance" min="0" max="255" value="40">
+        </label>
+        <label class="field">Feather / Softness (<span id="bgFeatherVal">10</span>)
+          <input type="range" id="bgFeather" min="0" max="100" value="10">
+        </label>
+      </div>
+      <label class="field checkbox-field">
+        <input type="checkbox" id="bgApplyAll" checked>
+        Terapkan ke semua frame
+      </label>
+      <p class="hint">Jika tidak dicentang, perubahan hanya diterapkan ke frame pertama.</p>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="bgPreviewBtn" type="button">Pratinjau Frame Pertama</button>
+        <button class="btn btn-primary" id="bgApplyBtn" type="button">Terapkan</button>
+      </div>
+      <div class="checker-preview-wrap">
+        <canvas id="bgPreviewCanvas" class="checker-bg"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SPRITESHEET ===================== -->
+  <section class="panel" id="panel-sheet" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Layout Spritesheet</h2>
+      <div class="grid-2">
+        <label class="field">Frame width (px)
+          <input type="number" id="sheetFrameW" value="128" min="1" step="1">
+        </label>
+        <label class="field">Frame height (px)
+          <input type="number" id="sheetFrameH" value="128" min="1" step="1">
+        </label>
+        <label class="field">Columns
+          <input type="number" id="sheetColumns" value="8" min="1" step="1">
+        </label>
+        <label class="field">Padding (px)
+          <input type="number" id="sheetPadding" value="0" min="0" step="1">
+        </label>
+        <label class="field">Margin (px)
+          <input type="number" id="sheetMargin" value="0" min="0" step="1">
+        </label>
+      </div>
+      <button class="btn btn-primary" id="buildSheetBtn" type="button">Bangun Spritesheet</button>
+      <div class="meta-row" id="sheetMeta">
+        <span>Total frame: <b id="sheetTotalFrames">0</b></span>
+        <span>Rows: <b id="sheetRows">0</b></span>
+        <span>Columns: <b id="sheetColsOut">0</b></span>
+        <span>Ukuran frame: <b id="sheetFrameSize">-</b></span>
+        <span>Resolusi sheet: <b id="sheetResolution">-</b></span>
+      </div>
+      <div class="checker-preview-wrap">
+        <canvas id="sheetPreviewCanvas" class="checker-bg"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== EDITOR ===================== -->
+  <section class="panel" id="panel-editor" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Frame Editor</h2>
+      <p class="hint">Seret kartu untuk mengubah urutan. Ketuk &times; untuk menghapus.</p>
+      <div class="btn-row">
+        <input type="file" id="editorAddImageInput" accept="image/png,image/jpeg,image/webp" hidden multiple>
+        <button class="btn btn-secondary" id="editorAddImageBtn" type="button">+ Tambah Gambar</button>
+        <button class="btn btn-primary" id="rebuildSheetBtn" type="button">Rebuild Spritesheet</button>
+      </div>
+      <div class="frame-grid" id="editorFrameGrid"></div>
+    </div>
+  </section>
+
+  <!-- ===================== MERGE ===================== -->
+  <section class="panel" id="panel-merge" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Gabungkan 2 Spritesheet</h2>
+      <div class="grid-2">
+        <label class="field">Spritesheet A
+          <input type="file" id="mergeFileA" accept="image/png,image/jpeg,image/webp">
+        </label>
+        <label class="field">Spritesheet B
+          <input type="file" id="mergeFileB" accept="image/png,image/jpeg,image/webp">
+        </label>
+      </div>
+      <div class="grid-2">
+        <canvas class="checker-bg thumb-canvas" id="mergePreviewA"></canvas>
+        <canvas class="checker-bg thumb-canvas" id="mergePreviewB"></canvas>
+      </div>
+
+      <label class="field">Mode Gabung
+        <select id="mergeMode">
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+          <option value="overlay">Overlay</option>
+          <option value="append">Append Frames</option>
+        </select>
+      </label>
+
+      <div id="mergeAppendSettings" hidden>
+        <div class="grid-2">
+          <label class="field">Frame width A (px)
+            <input type="number" id="mergeFrameWA" value="128" min="1" step="1">
+          </label>
+          <label class="field">Frame height A (px)
+            <input type="number" id="mergeFrameHA" value="128" min="1" step="1">
+          </label>
+          <label class="field">Frame width B (px)
+            <input type="number" id="mergeFrameWB" value="128" min="1" step="1">
+          </label>
+          <label class="field">Frame height B (px)
+            <input type="number" id="mergeFrameHB" value="128" min="1" step="1">
+          </label>
+          <label class="field">Columns output
+            <input type="number" id="mergeColumnsOut" value="8" min="1" step="1">
+          </label>
+          <label class="field">Fit mode (jika ukuran beda)
+            <select id="mergeFitMode">
+              <option value="scale">Scale</option>
+              <option value="fit">Fit</option>
+              <option value="center">Center</option>
+              <option value="crop">Crop</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="mergeRunBtn" type="button">Gabungkan</button>
+      <div class="checker-preview-wrap">
+        <canvas id="mergeResultCanvas" class="checker-bg"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== EXPORT ===================== -->
+  <section class="panel" id="panel-export" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Export</h2>
+      <div class="btn-col">
+        <button class="btn btn-primary" id="exportSheetBtn" type="button">Download Spritesheet PNG</button>
+        <button class="btn btn-secondary" id="exportFramesBtn" type="button">Download Semua Frame (PNG individual)</button>
+        <button class="btn btn-secondary" id="exportJsonBtn" type="button">Download JSON Metadata</button>
+      </div>
+      <div class="progress-wrap" id="exportProgressWrap" hidden>
+        <div class="progress-bar"><div class="progress-fill" id="exportProgressFill"></div></div>
+        <span class="progress-label" id="exportProgressLabel">0 / 0</span>
+      </div>
+      <p class="hint">File akan diunduh satu per satu oleh browser (tanpa ZIP, sesuai batasan tanpa library eksternal).</p>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
