@@ -8,7 +8,9 @@ const state = {
   sheetMeta: null,    // { canvas, cols, rows, frameW, frameH, count, sheetW, sheetH, padding, margin }
   exportSheet: null,  // last built/merged spritesheet canvas, used by Export tab
   mergeA: null,        // canvas of loaded spritesheet A
-  mergeB: null         // canvas of loaded spritesheet B
+  mergeB: null,        // canvas of loaded spritesheet B
+  smooth: false,       // false = pixelated (nearest), true = smoothed
+  lang: 'id'
 };
 
 let idCounter = 0;
@@ -25,7 +27,7 @@ function $(id) { return document.getElementById(id); }
 
 function showToast(msg, duration) {
   const el = $('toast');
-  el.textContent = msg;
+  el.textContent = tr(msg);
   el.classList.add('show');
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => el.classList.remove('show'), duration || 2200);
@@ -41,9 +43,9 @@ function formatDuration(sec) {
 function hexToRgb(hex) {
   const v = hex.replace('#', '');
   return {
-    r: parseInt(v.substr(0, 2), 16),
-    g: parseInt(v.substr(2, 2), 16),
-    b: parseInt(v.substr(4, 2), 16)
+    r: parseInt(v.slice(0, 2), 16),
+    g: parseInt(v.slice(2, 4), 16),
+    b: parseInt(v.slice(4, 6), 16)
   };
 }
 
@@ -72,10 +74,7 @@ function makeThumbCanvas(sourceCanvas, size) {
 
 /* Disable bilinear smoothing so scaling never introduces blur (crisp / pixel-accurate output). */
 function setCrisp(ctx) {
-  ctx.imageSmoothingEnabled = false;
-  ctx.mozImageSmoothingEnabled = false;
-  ctx.webkitImageSmoothingEnabled = false;
-  ctx.msImageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = state.smooth;
 }
 
 /* Accurate area-based resampling: each output pixel is the alpha-weighted average of the
@@ -146,8 +145,31 @@ function accurateDrawScaled(destCtx, sourceCanvas, sx, sy, sw, sh, dx, dy, dw, d
   const clampedSh = Math.max(1, Math.min(sh, sourceCanvas.height - clampedSy));
   const srcCtx = sourceCanvas.getContext('2d');
   const srcImageData = srcCtx.getImageData(clampedSx, clampedSy, clampedSw, clampedSh);
-  const outImageData = areaResample(srcImageData, clampedSw, clampedSh, dw, dh);
-  destCtx.putImageData(outImageData, dx, dy);
+  if (!state.smooth) {
+    destCtx.putImageData(nearestResample(srcImageData, clampedSw, clampedSh, dw, dh), dx, dy);
+  } else if (dw <= clampedSw && dh <= clampedSh) {
+    destCtx.putImageData(areaResample(srcImageData, clampedSw, clampedSh, dw, dh), dx, dy);
+  } else {
+    destCtx.imageSmoothingEnabled = true;
+    destCtx.imageSmoothingQuality = 'high';
+    destCtx.drawImage(sourceCanvas, clampedSx, clampedSy, clampedSw, clampedSh, dx, dy, dw, dh);
+  }
+}
+
+/* Pixelated mode: nearest-neighbor, picks the pixel at the centre of each output pixel's
+   footprint. No colour blending, so pixel art stays sharp. */
+function nearestResample(src, sw, sh, dw, dh) {
+  const out = new ImageData(dw, dh);
+  for (let oy = 0; oy < dh; oy++) {
+    const sy = Math.min(sh - 1, Math.floor((oy + 0.5) * sh / dh));
+    for (let ox = 0; ox < dw; ox++) {
+      const sx = Math.min(sw - 1, Math.floor((ox + 0.5) * sw / dw));
+      const si = (sy * sw + sx) * 4, oi = (oy * dw + ox) * 4;
+      out.data[oi] = src.data[si]; out.data[oi + 1] = src.data[si + 1];
+      out.data[oi + 2] = src.data[si + 2]; out.data[oi + 3] = src.data[si + 3];
+    }
+  }
+  return out;
 }
 
 /* Draw sourceCanvas into ctx (dw x dh) using cover / contain / stretch, pixel-accurately. */
@@ -474,27 +496,57 @@ async function decodeGifToCanvases(buffer, opts, onProgress) {
 /* =========================================================================
    VIDEO FRAME EXTRACTION (HTML5 <video> + Canvas, no FFmpeg)
    ========================================================================= */
+/* Waits until the video really shows the requested time. Fixes the old bug where the canvas
+   was drawn right after 'seeked', before the new frame was painted (stale/duplicated frames),
+   and where seeking to the current time never fired 'seeked' (hang). */
 function seekVideo(video, time) {
   return new Promise((resolve) => {
-    const onSeeked = () => {
-      video.removeEventListener('seeked', onSeeked);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(guard);
+      video.removeEventListener('seeked', settle);
       resolve();
     };
-    video.addEventListener('seeked', onSeeked);
-    video.currentTime = time;
+    function settle() {
+      video.removeEventListener('seeked', settle);
+      if (typeof video.requestVideoFrameCallback === 'function') {
+        video.requestVideoFrameCallback(finish);
+        setTimeout(finish, 250);
+      } else {
+        requestAnimationFrame(() => requestAnimationFrame(finish));
+      }
+    }
+    const guard = setTimeout(finish, 4000);
+    if (Math.abs(video.currentTime - time) < 0.0005 && video.readyState >= 2) {
+      settle();
+    } else {
+      video.addEventListener('seeked', settle);
+      video.currentTime = time;
+    }
   });
+}
+
+/* Frame times are start + i*step (no float accumulation). The last frame is kept and clamped
+   just inside the video length, because seeking exactly to the end gives no new frame. */
+function buildTimestamps(duration, s) {
+  const start = Math.max(0, s.start || 0);
+  const end = s.end ? Math.min(s.end, duration) : duration;
+  const step = s.mode === 'fps' ? 1 / s.fps : s.interval;
+  const last = Math.max(0, duration - 0.001);
+  const out = [];
+  for (let i = 0; out.length < s.maxFrames; i++) {
+    const t = start + i * step;
+    if (t >= end - 1e-6) break;
+    out.push(Math.min(t, last));
+  }
+  return out;
 }
 
 async function extractVideoFrames(video, settings, onProgress) {
   const duration = video.duration;
-  const startTime = Math.max(0, settings.start || 0);
-  const endTime = settings.end ? Math.min(settings.end, duration) : duration;
-  const step = settings.mode === 'fps' ? 1 / settings.fps : settings.interval;
-
-  const timestamps = [];
-  for (let t = startTime; t < endTime && timestamps.length < settings.maxFrames; t += step) {
-    timestamps.push(t);
-  }
+  const timestamps = buildTimestamps(duration, settings);
 
   const tmpCanvas = document.createElement('canvas');
   tmpCanvas.width = video.videoWidth;
@@ -530,21 +582,25 @@ function colorDistance(r1, g1, b1, r2, g2, b2) {
 function applyBackgroundRemoval(canvas, settings) {
   if (settings.mode === 'normal') return canvas;
   const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  const imgData = ctx.getImageData(0, 0, w, h);
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imgData.data;
-  const { r: tr, g: tg, b: tb } = settings.color;
-  const tol = settings.tolerance;
-  const feather = settings.feather;
+  const { r: tr_, g: tg, b: tb } = settings.color;
+  const tol = settings.tolerance, feather = settings.feather;
+  const chroma = settings.mode === 'chroma';
+  // Chroma key: also pull the key colour's dominant channel down on edge pixels (despill)
+  const keyCh = tr_ >= tg && tr_ >= tb ? 0 : (tg >= tb ? 1 : 2);
+  const o1 = (keyCh + 1) % 3, o2 = (keyCh + 2) % 3;
 
   for (let i = 0; i < data.length; i += 4) {
-    const dist = colorDistance(data[i], data[i + 1], data[i + 2], tr, tg, tb);
-    if (dist <= tol) {
-      data[i + 3] = 0;
-    } else if (feather > 0 && dist <= tol + feather) {
+    const dist = colorDistance(data[i], data[i + 1], data[i + 2], tr_, tg, tb);
+    if (dist <= tol) { data[i + 3] = 0; continue; }
+    if (feather > 0 && dist < tol + feather) {
       const t = (dist - tol) / feather;
-      data[i + 3] = Math.round(data[i + 3] * t);
+      data[i + 3] = Math.round(data[i + 3] * (chroma ? t * t * (3 - 2 * t) : t));
+    }
+    if (chroma && dist < tol + feather + 60) {
+      const lim = (data[i + o1] + data[i + o2]) / 2;
+      if (data[i + keyCh] > lim) data[i + keyCh] = lim;
     }
   }
   ctx.putImageData(imgData, 0, 0);
@@ -671,7 +727,7 @@ function renderFrameGrid(container) {
     const delBtn = document.createElement('button');
     delBtn.className = 'frame-del';
     delBtn.type = 'button';
-    delBtn.title = 'Hapus frame';
+    delBtn.title = tr('Hapus frame');
     delBtn.textContent = '\u00d7';
     delBtn.addEventListener('click', () => {
       state.frames = state.frames.filter((x) => x.id !== f.id);
@@ -686,14 +742,14 @@ function renderFrameGrid(container) {
     leftBtn.type = 'button';
     leftBtn.className = 'frame-del';
     leftBtn.style.position = 'static';
-    leftBtn.title = 'Pindah ke kiri';
+    leftBtn.title = tr('Pindah ke kiri');
     leftBtn.textContent = '\u25c0';
     leftBtn.addEventListener('click', () => moveFrame(index, index - 1));
     const rightBtn = document.createElement('button');
     rightBtn.type = 'button';
     rightBtn.className = 'frame-del';
     rightBtn.style.position = 'static';
-    rightBtn.title = 'Pindah ke kanan';
+    rightBtn.title = tr('Pindah ke kanan');
     rightBtn.textContent = '\u25b6';
     rightBtn.addEventListener('click', () => moveFrame(index, index + 1));
     moveWrap.appendChild(leftBtn);
@@ -757,7 +813,10 @@ async function setupVideoPreview(file) {
   video.src = url;
   video.hidden = false;
 
-  await new Promise((resolve) => video.addEventListener('loadedmetadata', resolve, { once: true }));
+  await new Promise((resolve) => {
+    video.addEventListener('loadedmetadata', resolve, { once: true });
+    video.addEventListener('error', () => { showToast('Format file tidak didukung'); resolve(); }, { once: true });
+  });
 
   $('mediaPreviewCard').hidden = false;
   $('videoMeta').hidden = false;
@@ -805,8 +864,7 @@ function updateEstimatedFrames() {
   const endRaw = $('extractEnd').value;
   const end = endRaw ? parseFloat(endRaw) : video.duration;
   const maxFrames = parseInt($('extractMaxFrames').value, 10) || 1;
-  const step = mode === 'fps' ? 1 / fps : interval;
-  const est = Math.max(0, Math.min(maxFrames, Math.floor((end - start) / step)));
+  const est = buildTimestamps(video.duration, { mode, fps, interval, start, end: endRaw ? end : null, maxFrames }).length;
   $('metaEstFrames').textContent = String(est);
 }
 
@@ -965,6 +1023,7 @@ function initTabs() {
       btn.classList.add('active');
       btn.setAttribute('aria-selected', 'true');
       $('panel-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'background') renderBgPreview();
     });
   });
 }
@@ -973,6 +1032,7 @@ function initDropzone() {
   const dropzone = $('dropzone');
   const fileInput = $('fileInput');
   $('pickFileBtn').addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+  fileInput.addEventListener('click', (e) => e.stopPropagation());
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
   fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleIncomingFile(fileInput.files[0]); fileInput.value = ''; });
@@ -1024,7 +1084,7 @@ function initImportTab() {
       });
       canvases.forEach((c) => state.frames.push({ id: nextId(), canvas: c }));
       refreshAllFrameViews();
-      showToast(canvases.length + ' frame diekstrak');
+      showToast(canvases.length ? tr('{n} frame diekstrak', canvases.length) : 'Tidak ada frame');
       video.currentTime = originalTime;
     } catch (err) {
       console.error(err);
@@ -1059,10 +1119,10 @@ function initImportTab() {
       });
       canvases.forEach((c) => state.frames.push({ id: nextId(), canvas: c }));
       refreshAllFrameViews();
-      showToast(canvases.length + ' frame di-decode dari GIF');
+      showToast(tr('{n} frame di-decode dari GIF', canvases.length));
     } catch (err) {
       console.error(err);
-      showToast('Gagal decode GIF: ' + err.message);
+      showToast(tr('Gagal decode GIF: ') + err.message);
     } finally {
       btn.disabled = false;
       setTimeout(() => { wrap.hidden = true; fill.style.width = '0%'; }, 800);
@@ -1078,15 +1138,75 @@ function initImportTab() {
   });
 }
 
-function initBackgroundTab() {
-  $('bgTolerance').addEventListener('input', (e) => { $('bgToleranceVal').textContent = e.target.value; });
-  $('bgFeather').addEventListener('input', (e) => { $('bgFeatherVal').textContent = e.target.value; });
+let bgUndo = null, bgRaf = 0;
 
-  $('bgPreviewBtn').addEventListener('click', () => {
-    if (state.frames.length === 0) { showToast('Tidak ada frame'); return; }
-    const clone = cloneCanvas(state.frames[0].canvas);
-    applyBackgroundRemoval(clone, getBgSettings());
-    paintPreview($('bgPreviewCanvas'), clone);
+function rgbToHex(r, g, b) { return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join(''); }
+
+function renderBgPreview() {
+  const src = $('bgSourceCanvas'), out = $('bgPreviewCanvas');
+  if (!state.frames.length) {
+    [src, out].forEach((c) => { c.width = 1; c.height = 1; });
+    return;
+  }
+  const f = state.frames[0].canvas;
+  paintPreview(src, f);
+  const clone = cloneCanvas(f);
+  applyBackgroundRemoval(clone, getBgSettings());
+  paintPreview(out, clone);
+}
+function queueBgPreview() { cancelAnimationFrame(bgRaf); bgRaf = requestAnimationFrame(renderBgPreview); }
+
+function setBgColor(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
+  hex = hex.toLowerCase();
+  $('bgColor').value = hex;
+  $('bgHex').value = hex;
+  if ($('bgMode').value === 'normal') $('bgMode').value = 'transparent';
+  queueBgPreview();
+}
+
+function detectCornerColor(c) {
+  const ctx = c.getContext('2d'), w = c.width, h = c.height;
+  const count = {};
+  let best = null, bn = 0;
+  [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]].forEach(([x, y]) => {
+    const d = ctx.getImageData(x, y, 1, 1).data;
+    if (d[3] < 128) return;
+    const k = rgbToHex(d[0], d[1], d[2]);
+    count[k] = (count[k] || 0) + 1;
+    if (count[k] > bn) { bn = count[k]; best = k; }
+  });
+  return best;
+}
+
+function initBackgroundTab() {
+  $('bgTolerance').addEventListener('input', (e) => { $('bgToleranceVal').textContent = e.target.value; queueBgPreview(); });
+  $('bgFeather').addEventListener('input', (e) => { $('bgFeatherVal').textContent = e.target.value; queueBgPreview(); });
+  $('bgMode').addEventListener('change', queueBgPreview);
+  $('bgColor').addEventListener('input', (e) => setBgColor(e.target.value));
+  $('bgHex').addEventListener('input', (e) => {
+    let v = e.target.value.trim();
+    if (v && v[0] !== '#') v = '#' + v;
+    setBgColor(v);
+  });
+  $('bgSwatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-color]');
+    if (b) setBgColor(b.dataset.color);
+  });
+  $('bgSourceCanvas').addEventListener('click', (e) => {
+    const c = e.currentTarget;
+    if (!state.frames.length) return;
+    const r = c.getBoundingClientRect();
+    const x = Math.min(c.width - 1, Math.max(0, Math.floor((e.clientX - r.left) * c.width / r.width)));
+    const y = Math.min(c.height - 1, Math.max(0, Math.floor((e.clientY - r.top) * c.height / r.height)));
+    const d = c.getContext('2d').getImageData(x, y, 1, 1).data;
+    setBgColor(rgbToHex(d[0], d[1], d[2]));
+    showToast('Warna diambil');
+  });
+  $('bgAutoBtn').addEventListener('click', () => {
+    if (!state.frames.length) { showToast('Tidak ada frame'); return; }
+    const hex = detectCornerColor(state.frames[0].canvas);
+    if (hex) setBgColor(hex); else showToast('Pojok sudah transparan');
   });
 
   $('bgApplyBtn').addEventListener('click', () => {
@@ -1094,10 +1214,23 @@ function initBackgroundTab() {
     const settings = getBgSettings();
     const applyAll = $('bgApplyAll').checked;
     const targets = applyAll ? state.frames : [state.frames[0]];
+    bgUndo = targets.map((f) => ({ f, copy: cloneCanvas(f.canvas) }));
     targets.forEach((f) => applyBackgroundRemoval(f.canvas, settings));
     refreshAllFrameViews();
-    paintPreview($('bgPreviewCanvas'), targets[0].canvas);
+    renderBgPreview();
     showToast(applyAll ? 'Diterapkan ke semua frame' : 'Diterapkan ke frame pertama');
+  });
+  $('bgUndoBtn').addEventListener('click', () => {
+    if (!bgUndo) { showToast('Tidak ada yang bisa diurungkan'); return; }
+    bgUndo.forEach(({ f, copy }) => {
+      const ctx = f.canvas.getContext('2d');
+      ctx.clearRect(0, 0, f.canvas.width, f.canvas.height);
+      ctx.drawImage(copy, 0, 0);
+    });
+    bgUndo = null;
+    refreshAllFrameViews();
+    renderBgPreview();
+    showToast('Diurungkan');
   });
 }
 
@@ -1148,6 +1281,112 @@ function initExportTab() {
 }
 
 /* =========================================================================
+   LANGUAGE (ID default text lives in the HTML; EN is swapped in from this table)
+   ========================================================================= */
+const EN = {
+  'Bagian aplikasi': 'App sections', 'Gabung': 'Merge',
+  'Seret file ke sini atau ketuk untuk memilih': 'Drop a file here or tap to choose',
+  'Pilih File': 'Choose File', 'Pratinjau': 'Preview', 'Durasi:': 'Duration:', 'Resolusi:': 'Resolution:',
+  'Estimasi frame:': 'Estimated frames:', 'Pengaturan Ekstraksi Video': 'Video Extraction Settings',
+  'Berdasarkan FPS': 'By FPS', 'Berdasarkan Interval (detik)': 'By interval (seconds)',
+  'Interval (detik)': 'Interval (seconds)', 'Start time (detik)': 'Start time (s)',
+  'End time (detik, kosongkan = habis)': 'End time (s, empty = to the end)', 'Maks frame': 'Max frames',
+  'Ekstrak Frame': 'Extract Frames', 'Pengaturan GIF': 'GIF Settings',
+  'Frame width (px, kosongkan = asli)': 'Frame width (px, empty = original)',
+  'Frame height (px, kosongkan = asli)': 'Frame height (px, empty = original)',
+  'Tambahkan sebagai Frame': 'Add as Frame', 'Tambahkan ke Frame': 'Add to Frames',
+  'Frame Saat Ini (': 'Current Frames (', 'Hapus Background': 'Remove Background',
+  'Normal (tidak diubah)': 'Normal (unchanged)', 'Hapus warna spesifik': 'Remove a specific color',
+  'Klik gambar asli untuk mengambil warna.': 'Click the original image to pick a color.',
+  'Asli': 'Original', 'Hasil': 'Result', 'Deteksi dari pojok': 'Detect from corners',
+  'Terapkan ke semua frame': 'Apply to all frames',
+  'Jika tidak dicentang, perubahan hanya diterapkan ke frame pertama.': 'If unchecked, only the first frame is changed.',
+  'Terapkan': 'Apply', 'Urungkan': 'Undo', 'Warna': 'Color', 'Bangun Spritesheet': 'Build Spritesheet',
+  'Total frame:': 'Total frames:', 'Ukuran frame:': 'Frame size:', 'Resolusi sheet:': 'Sheet resolution:',
+  'Seret kartu untuk mengubah urutan. Ketuk \u00d7 untuk menghapus.': 'Drag cards to reorder. Tap \u00d7 to delete.',
+  '+ Tambah Gambar': '+ Add Images', 'Gabungkan 2 Spritesheet': 'Merge 2 Spritesheets', 'Mode Gabung': 'Merge Mode',
+  'Fit mode (jika ukuran beda)': 'Fit mode (if sizes differ)', 'Gabungkan': 'Merge',
+  'Download Semua Frame (PNG individual)': 'Download All Frames (individual PNGs)',
+  'File diunduh satu per satu oleh browser (tanpa ZIP).': 'Files are downloaded one by one by the browser (no ZIP).',
+  'auto': 'auto', 'asli': 'original',
+  'Format file tidak didukung': 'Unsupported file format', 'Video belum siap': 'Video is not ready yet',
+  'Tidak ada frame': 'No frames', 'Tidak ada frame untuk disusun': 'No frames to arrange',
+  'Spritesheet dibangun': 'Spritesheet built', 'Bangun spritesheet dulu di tab Spritesheet': 'Build a spritesheet in the Spritesheet tab first',
+  'Upload kedua spritesheet dulu': 'Upload both spritesheets first',
+  'Digabungkan. Buka tab Export untuk mengunduh PNG-nya.': 'Merged. Open the Export tab to download the PNG.',
+  'Belum ada spritesheet. Bangun dulu di tab Spritesheet atau Gabung.': 'No spritesheet yet. Build one in the Spritesheet or Merge tab.',
+  'Semua frame diunduh': 'All frames downloaded', 'Gagal membuat PNG': 'Failed to create PNG',
+  'Gagal mengekstrak frame video': 'Failed to extract video frames', 'Frame ditambahkan': 'Frame added',
+  'Diterapkan ke semua frame': 'Applied to all frames', 'Diterapkan ke frame pertama': 'Applied to the first frame',
+  'Hapus frame': 'Delete frame', 'Pindah ke kiri': 'Move left', 'Pindah ke kanan': 'Move right',
+  '{n} frame diekstrak': '{n} frames extracted', '{n} frame di-decode dari GIF': '{n} frames decoded from GIF',
+  'Gagal decode GIF: ': 'Failed to decode GIF: ', 'Warna diambil': 'Color picked', 'Diurungkan': 'Undone',
+  'Tidak ada yang bisa diurungkan': 'Nothing to undo', 'Pojok sudah transparan': 'Corners are already transparent',
+  'Rendering diubah. Bangun ulang spritesheet untuk menerapkannya.': 'Rendering changed. Rebuild the spritesheet to apply it.'
+};
+
+function tr(key, n) {
+  let v = state.lang === 'en' && EN[key] !== undefined ? EN[key] : key;
+  return n === undefined ? v : v.replace('{n}', n);
+}
+
+function applyLang() {
+  document.documentElement.lang = state.lang;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.parentNode.closest('script')) continue;
+    if (node.__id === undefined) {
+      const k = node.nodeValue.trim();
+      if (!k || EN[k] === undefined) continue;
+      node.__id = node.nodeValue;
+    }
+    const k = node.__id.trim();
+    node.nodeValue = state.lang === 'en' ? node.__id.replace(k, EN[k]) : node.__id;
+  }
+  document.querySelectorAll('[placeholder],[aria-label],[title]').forEach((el) => {
+    ['placeholder', 'aria-label', 'title'].forEach((a) => {
+      if (!el.hasAttribute(a)) return;
+      const key = '__id_' + a;
+      if (el[key] === undefined) { if (EN[el.getAttribute(a)] === undefined) return; el[key] = el.getAttribute(a); }
+      el.setAttribute(a, tr(el[key]));
+    });
+  });
+  document.querySelectorAll('[data-lang]').forEach((b) => b.classList.toggle('on', b.dataset.lang === state.lang));
+}
+
+function setLang(l) {
+  state.lang = l;
+  try { localStorage.setItem('ss.lang', l); } catch (e) {}
+  applyLang();
+  refreshAllFrameViews();
+}
+
+function setSmooth(v, notify) {
+  state.smooth = v;
+  document.body.classList.toggle('smooth', v);
+  document.querySelectorAll('[data-smooth]').forEach((b) => b.classList.toggle('on', (b.dataset.smooth === '1') === v));
+  try { localStorage.setItem('ss.smooth', v ? '1' : '0'); } catch (e) {}
+  refreshAllFrameViews();
+  queueBgPreview();
+  if (notify) showToast('Rendering diubah. Bangun ulang spritesheet untuk menerapkannya.');
+}
+
+function initPrefs() {
+  let lang = (navigator.language || 'id').toLowerCase().startsWith('id') ? 'id' : 'en';
+  let smooth = false;
+  try {
+    lang = localStorage.getItem('ss.lang') || lang;
+    smooth = localStorage.getItem('ss.smooth') === '1';
+  } catch (e) {}
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  document.querySelectorAll('[data-smooth]').forEach((b) => b.addEventListener('click', () => setSmooth(b.dataset.smooth === '1', true)));
+  state.lang = lang;
+  setSmooth(smooth, false);
+  applyLang();
+}
+
+/* =========================================================================
    INIT
    ========================================================================= */
 initTabs();
@@ -1158,3 +1397,4 @@ initSheetTab();
 initEditorTab();
 initMergeTab();
 initExportTab();
+initPrefs();
