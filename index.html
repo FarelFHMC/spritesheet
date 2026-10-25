@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="Farelfhmc (Studio Fhilion)">
+<meta name="description" content="Spritesheet Studio v1.6.0 - video, GIF and images to spritesheet. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -10,7 +12,7 @@
 
 <header class="app-header">
   <div class="topbar">
-    <div class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v1.5</span></div>
+    <div class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v1.6</span></div>
     <div class="controls">
       <div class="seg" role="group" aria-label="Rendering">
         <button type="button" data-smooth="0" class="on">Pixelated</button><button type="button" data-smooth="1">Smoothed</button>
@@ -25,12 +27,23 @@
     <button class="tab-btn" data-tab="background" role="tab" aria-selected="false">Background</button>
     <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Spritesheet</button>
     <button class="tab-btn" data-tab="editor" role="tab" aria-selected="false">Editor</button>
+    <button class="tab-btn" data-tab="paint" role="tab" aria-selected="false">Editor Sprite</button>
     <button class="tab-btn" data-tab="merge" role="tab" aria-selected="false">Gabung</button>
     <button class="tab-btn" data-tab="export" role="tab" aria-selected="false">Export</button>
   </nav>
 </header>
 
 <main class="app-main">
+
+  <!-- ===================== WHAT'S NEW NOTICE ===================== -->
+  <div class="notice" id="newsNotice" role="note" hidden>
+    <div class="notice-body">
+      <p class="notice-title">Baru di v1.6.0</p>
+      <p class="notice-text">Export frame ke ZIP, ganti nama file, format JPG/WebP, dan Editor Sprite (beta).</p>
+      <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
+    </div>
+    <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
+  </div>
 
   <!-- ===================== IMPORT ===================== -->
   <section class="panel active" id="panel-import" role="tabpanel">
@@ -170,10 +183,10 @@
         <button type="button" data-color="#000000" style="background:#000000" aria-label="#000000"></button>
       </div>
       <div class="grid-2">
-        <label class="field">Tolerance (<span id="bgToleranceVal">40</span>)
+        <label class="field"><span>Tolerance (<span id="bgToleranceVal">40</span>)</span>
           <input type="range" id="bgTolerance" min="0" max="255" value="40">
         </label>
-        <label class="field">Feather / Softness (<span id="bgFeatherVal">10</span>)
+        <label class="field"><span>Feather / Softness (<span id="bgFeatherVal">10</span>)</span>
           <input type="range" id="bgFeather" min="0" max="100" value="10">
         </label>
       </div>
@@ -235,6 +248,54 @@
         <button class="btn btn-primary" id="rebuildSheetBtn" type="button">Rebuild Spritesheet</button>
       </div>
       <div class="frame-grid" id="editorFrameGrid"></div>
+    </div>
+  </section>
+
+  <!-- ===================== SPRITE EDITOR (BETA) ===================== -->
+  <section class="panel" id="panel-paint" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Editor Sprite <span class="badge">beta</span></h2>
+      <p class="hint">Pilih frame, lalu gambar langsung di atasnya. Hasilnya ikut ke Export.</p>
+      <div class="frame-strip" id="paintFrameStrip"></div>
+      <p class="hint" id="paintEmpty">Belum ada frame. Import dulu di tab Import.</p>
+
+      <div id="paintWork" hidden>
+        <div class="paint-wrap" id="paintWrap"><canvas id="paintCanvas" class="checker-bg"></canvas></div>
+        <div class="btn-row paint-actions">
+          <button class="btn btn-secondary" id="paintUndoBtn" type="button" disabled>Urungkan</button>
+          <button class="btn btn-secondary" id="paintRedoBtn" type="button" disabled>Ulangi</button>
+          <button class="btn btn-secondary" id="paintZoomOutBtn" type="button" aria-label="Zoom out">&minus;</button>
+          <button class="btn btn-secondary" id="paintZoomInBtn" type="button" aria-label="Zoom in">+</button>
+          <button class="btn btn-secondary" id="paintFitBtn" type="button">Fit</button>
+          <span class="zoom-label" id="paintZoomLabel">100%</span>
+        </div>
+        <div class="btn-row paint-tools">
+          <div class="seg" role="group" aria-label="Alat">
+            <button type="button" data-tool="brush" class="on">Brush</button><button type="button" data-tool="eraser">Eraser</button><button type="button" data-tool="pan">Geser</button>
+          </div>
+        </div>
+        <div class="color-row">
+          <input type="color" id="paintColor" value="#000000" aria-label="Warna">
+          <input type="text" id="paintHex" value="#000000" maxlength="7" spellcheck="false" aria-label="Hex">
+        </div>
+        <div class="swatches" id="paintSwatches">
+          <button type="button" data-color="#000000" style="background:#000000" aria-label="#000000"></button>
+          <button type="button" data-color="#ffffff" style="background:#ffffff" aria-label="#ffffff"></button>
+          <button type="button" data-color="#e53935" style="background:#e53935" aria-label="#e53935"></button>
+          <button type="button" data-color="#fb8c00" style="background:#fb8c00" aria-label="#fb8c00"></button>
+          <button type="button" data-color="#fdd835" style="background:#fdd835" aria-label="#fdd835"></button>
+          <button type="button" data-color="#43a047" style="background:#43a047" aria-label="#43a047"></button>
+          <button type="button" data-color="#1e88e5" style="background:#1e88e5" aria-label="#1e88e5"></button>
+          <button type="button" data-color="#8e24aa" style="background:#8e24aa" aria-label="#8e24aa"></button>
+        </div>
+        <label class="field"><span>Ukuran kuas (<span id="paintSizeVal">1</span> px)</span>
+          <input type="range" id="paintSize" min="1" max="32" value="1">
+        </label>
+        <label class="field" style="margin-top:12px">Nama frame (untuk nama file saat export)
+          <input type="text" id="paintName" maxlength="80" spellcheck="false" autocomplete="off" placeholder="auto">
+        </label>
+        <p class="hint" style="margin-top:12px">Fitur beta: kuas persegi tanpa anti-alias (cocok untuk pixel art). Spritesheet otomatis diperbarui saat export.</p>
+      </div>
     </div>
   </section>
 
@@ -303,20 +364,46 @@
   <section class="panel" id="panel-export" role="tabpanel">
     <div class="card">
       <h2 class="card-title">Export</h2>
+      <div class="grid-2">
+        <label class="field">Nama file
+          <input type="text" id="exportName" value="spritesheet" maxlength="80" spellcheck="false" autocomplete="off">
+        </label>
+        <label class="field">Format gambar
+          <select id="exportFormat">
+            <option value="png">PNG (transparan)</option>
+            <option value="jpeg">JPG (tanpa transparansi)</option>
+            <option value="webp">WebP (transparan)</option>
+          </select>
+        </label>
+      </div>
+      <div class="grid-2" id="exportQualityRow" hidden>
+        <label class="field"><span>Kualitas (<span id="exportQualityVal">92</span>)</span>
+          <input type="range" id="exportQuality" min="10" max="100" value="92">
+        </label>
+        <label class="field" id="exportBgField">Warna latar JPG
+          <input type="color" id="exportBg" value="#ffffff" class="color-input">
+        </label>
+      </div>
+      <p class="hint" id="exportNamePreview"></p>
       <div class="btn-col">
-        <button class="btn btn-primary" id="exportSheetBtn" type="button">Download Spritesheet PNG</button>
-        <button class="btn btn-secondary" id="exportFramesBtn" type="button">Download Semua Frame (PNG individual)</button>
+        <button class="btn btn-primary" id="exportSheetBtn" type="button">Download Spritesheet</button>
+        <button class="btn btn-primary" id="exportZipBtn" type="button">Download Semua Frame (ZIP)</button>
+        <button class="btn btn-secondary" id="exportFramesBtn" type="button">Download Frame Satu per Satu</button>
         <button class="btn btn-secondary" id="exportJsonBtn" type="button">Download JSON Metadata</button>
       </div>
       <div class="progress-wrap" id="exportProgressWrap" hidden>
         <div class="progress-bar"><div class="progress-fill" id="exportProgressFill"></div></div>
         <span class="progress-label" id="exportProgressLabel">0 / 0</span>
       </div>
-      <p class="hint">File diunduh satu per satu oleh browser (tanpa ZIP).</p>
+      <p class="hint" style="margin-top:12px">ZIP menyatukan semua frame dalam satu file. Nama frame bisa diubah satu per satu di tab Editor Sprite.</p>
     </div>
   </section>
 
 </main>
+
+<footer class="app-footer">
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v1.6.0 &middot; MIT
+</footer>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

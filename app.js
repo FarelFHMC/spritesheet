@@ -1,16 +1,24 @@
 'use strict';
 
+/* Spritesheet Studio v1.6.0
+   Made by Farelfhmc - Studio Fhilion. MIT License. */
+const APP_VERSION = '1.6.0';
+
 /* =========================================================================
    STATE
    ========================================================================= */
 const state = {
-  frames: [],        // [{ id, canvas }]
+  frames: [],        // [{ id, canvas, name? }]
   sheetMeta: null,    // { canvas, cols, rows, frameW, frameH, count, sheetW, sheetH, padding, margin }
   exportSheet: null,  // last built/merged spritesheet canvas, used by Export tab
   mergeA: null,        // canvas of loaded spritesheet A
   mergeB: null,        // canvas of loaded spritesheet B
   smooth: false,       // false = pixelated (nearest), true = smoothed
-  lang: 'id'
+  lang: 'id',
+  exportSource: null,  // 'frames' | 'merge': where exportSheet came from
+  lastSheetSettings: null, // settings of the last sheet built from frames
+  sheetStale: false,   // frames changed since the sheet was built
+  thumbsDirty: false   // sprite editor changed pixels; other thumbnails need a refresh
 };
 
 let idCounter = 0;
@@ -225,11 +233,136 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-function downloadCanvasAsPNG(canvas, filename) {
-  canvas.toBlob((blob) => {
-    if (!blob) { showToast('Gagal membuat PNG'); return; }
-    downloadBlob(blob, filename);
-  }, 'image/png');
+/* ---- File names ---- */
+const FORMATS = {
+  png: { mime: 'image/png', ext: 'png' },
+  jpeg: { mime: 'image/jpeg', ext: 'jpg' },
+  webp: { mime: 'image/webp', ext: 'webp' }
+};
+
+/* Makes a safe file name: no path or reserved characters, no extension, no trailing dot/space. */
+function sanitizeName(raw, fallback) {
+  let n = String(raw == null ? '' : raw)
+    .replace(/[\t\r\n]+/g, ' ')
+    .replace(/[\u0000-\u001f\u007f\\/:*?"<>|]/g, '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/\.(png|jpe?g|webp|zip|json)$/i, '')
+    .replace(/^\.+/, '')
+    .replace(/[. ]+$/, '');
+  if (n.length > 80) n = n.slice(0, 80).replace(/[. ]+$/, '');
+  if (/^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(n)) n = '_' + n;
+  return n || fallback;
+}
+
+/* Returns name.ext, adding _2, _3 ... if the name is already used in `used`. */
+function uniqueFileName(used, base, ext) {
+  let name = base + '.' + ext, k = 2;
+  while (used.has(name.toLowerCase())) name = base + '_' + (k++) + '.' + ext;
+  used.add(name.toLowerCase());
+  return name;
+}
+
+/* ---- Image encoding (PNG / JPG / WebP) ---- */
+/* Resolves { blob, ext, fellBack } or null. fellBack = the browser can't encode that format
+   and returned PNG instead, so the extension is corrected to match the real bytes. */
+function encodeCanvas(canvas, opt) {
+  return new Promise((resolve) => {
+    const f = FORMATS[opt.fmt] || FORMATS.png;
+    let src = canvas;
+    if (opt.fmt === 'jpeg') {
+      // JPG has no transparency: put the sprite on a solid color instead of black
+      src = document.createElement('canvas');
+      src.width = canvas.width;
+      src.height = canvas.height;
+      const c = src.getContext('2d');
+      c.fillStyle = opt.bg || '#ffffff';
+      c.fillRect(0, 0, src.width, src.height);
+      c.drawImage(canvas, 0, 0);
+    }
+    const q = opt.fmt === 'png' ? undefined : Math.min(1, Math.max(0.1, (opt.quality || 92) / 100));
+    try {
+      src.toBlob((blob) => {
+        if (!blob) { resolve(null); return; }
+        if (blob.type !== f.mime) resolve({ blob, ext: 'png', fellBack: true });
+        else resolve({ blob, ext: f.ext, fellBack: false });
+      }, f.mime, q);
+    } catch (e) { resolve(null); }
+  });
+}
+
+/* ---- Minimal ZIP writer (store, no compression: PNG/JPG/WebP are already compressed) ---- */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* files: [{ name: string, data: Uint8Array }]. Names are stored as UTF-8. Returns a Blob. */
+function makeZip(files) {
+  if (files.length > 65535) throw new Error('zip-too-big');
+  const enc = new TextEncoder();
+  const d = new Date();
+  const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const dosDate = (Math.max(0, d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  const parts = [], central = [];
+  let offset = 0, cdSize = 0;
+
+  for (const f of files) {
+    const name = enc.encode(f.name);
+    const len = f.data.length;
+    const crc = crc32(f.data);
+    if (offset + 30 + name.length + len > 0xFFFFFFFF) throw new Error('zip-too-big');
+
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0x0800, true);          // bit 11: UTF-8 file names
+    lh.setUint16(8, 0, true);               // method 0 = stored
+    lh.setUint16(10, dosTime, true);
+    lh.setUint16(12, dosDate, true);
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, len, true);
+    lh.setUint32(22, len, true);
+    lh.setUint16(26, name.length, true);
+    lh.setUint16(28, 0, true);
+    parts.push(lh.buffer, name, f.data);
+
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true);
+    ch.setUint16(4, 20, true);
+    ch.setUint16(6, 20, true);
+    ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true);
+    ch.setUint16(12, dosTime, true);
+    ch.setUint16(14, dosDate, true);
+    ch.setUint32(16, crc, true);
+    ch.setUint32(20, len, true);
+    ch.setUint32(24, len, true);
+    ch.setUint16(28, name.length, true);
+    ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    cdSize += 46 + name.length;
+    offset += 30 + name.length + len;
+  }
+
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true);
+  end.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [end.buffer]), { type: 'application/zip' });
 }
 
 /* =========================================================================
@@ -688,6 +821,15 @@ function refreshAllFrameViews() {
   $('importFrameCount').textContent = state.frames.length;
   renderFrameStrip($('importFrameStrip'));
   renderFrameGrid($('editorFrameGrid'));
+  if ($('panel-paint').classList.contains('active')) renderPaintPicker();
+}
+
+/* Call after any change to the frame list or to frame pixels. A sheet built earlier no longer
+   matches the frames, so Export rebuilds it before downloading. */
+function framesChanged() {
+  state.sheetStale = true;
+  state.thumbsDirty = false;
+  refreshAllFrameViews();
 }
 
 function renderFrameStrip(container) {
@@ -704,7 +846,7 @@ function moveFrame(from, to) {
   if (isNaN(from) || isNaN(to) || from === to || to < 0 || to >= state.frames.length) return;
   const [item] = state.frames.splice(from, 1);
   state.frames.splice(to, 0, item);
-  refreshAllFrameViews();
+  framesChanged();
 }
 
 function renderFrameGrid(container) {
@@ -731,7 +873,7 @@ function renderFrameGrid(container) {
     delBtn.textContent = '\u00d7';
     delBtn.addEventListener('click', () => {
       state.frames = state.frames.filter((x) => x.id !== f.id);
-      refreshAllFrameViews();
+      framesChanged();
     });
     card.appendChild(delBtn);
 
@@ -869,36 +1011,142 @@ function updateEstimatedFrames() {
 }
 
 /* =========================================================================
-   EXPORT: FRAMES / SHEET / JSON
+   EXPORT: SHEET / FRAMES (ZIP or one by one) / JSON
    ========================================================================= */
-async function exportAllFrames() {
-  if (state.frames.length === 0) { showToast('Tidak ada frame'); return; }
-  const wrap = $('exportProgressWrap');
-  const fill = $('exportProgressFill');
-  const label = $('exportProgressLabel');
-  wrap.hidden = false;
-  const total = state.frames.length;
-  const pad = String(total).length;
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
-  for (let i = 0; i < total; i++) {
-    await new Promise((resolve) => {
-      state.frames[i].canvas.toBlob((blob) => {
-        if (blob) downloadBlob(blob, 'frame_' + String(i).padStart(pad, '0') + '.png');
-        resolve();
-      }, 'image/png');
-    });
-    fill.style.width = ((i + 1) / total * 100) + '%';
-    label.textContent = (i + 1) + ' / ' + total;
-    await new Promise((r) => setTimeout(r, 160));
+function getExportOpts() {
+  return {
+    fmt: $('exportFormat').value,
+    quality: parseInt($('exportQuality').value, 10) || 92,
+    bg: $('exportBg').value || '#ffffff'
+  };
+}
+
+function getBaseName() { return sanitizeName($('exportName').value, 'spritesheet'); }
+
+/* File name (without extension) of frame i: custom name from the Sprite Editor, else base_00 */
+function frameBaseName(i, total, base) {
+  const f = state.frames[i];
+  const custom = f && f.name ? sanitizeName(f.name, '') : '';
+  return custom || (base + '_' + String(i).padStart(String(total).length, '0'));
+}
+
+function updateExportUI() {
+  const fmt = $('exportFormat').value;
+  const ext = (FORMATS[fmt] || FORMATS.png).ext;
+  const base = getBaseName();
+  $('exportQualityRow').hidden = fmt === 'png';
+  $('exportBgField').hidden = fmt !== 'jpeg';
+  $('exportQualityVal').textContent = $('exportQuality').value;
+  $('exportNamePreview').textContent = tr('Nama file hasil:') + ' ' + base + '.' + ext + ' \u00b7 ' +
+    base + '_00.' + ext + ' \u00b7 ' + base + '_frames.zip \u00b7 ' + base + '.json';
+}
+
+/* Rebuilds the sheet if the frames changed after it was built, so Export never ships a stale
+   sheet. Returns false (and says why) when there is nothing to export. */
+function ensureFreshSheet() {
+  if (state.exportSource === 'frames' && state.sheetStale && state.lastSheetSettings) {
+    if (!state.frames.length) { showToast('Tidak ada frame'); return false; }
+    buildAndShowSheet(state.lastSheetSettings);
+    showToast('Spritesheet diperbarui otomatis dari frame terbaru');
   }
-  showToast('Semua frame diunduh');
-  setTimeout(() => { wrap.hidden = true; fill.style.width = '0%'; }, 1000);
+  return !!state.exportSheet;
+}
+
+/* Runs fn(setProgress) with the Export buttons disabled and the progress bar shown. */
+async function withExportBusy(fn, showProgress) {
+  const btns = document.querySelectorAll('#panel-export .btn');
+  const wrap = $('exportProgressWrap'), fill = $('exportProgressFill'), label = $('exportProgressLabel');
+  btns.forEach((b) => { b.disabled = true; });
+  wrap.hidden = showProgress === false;
+  fill.style.width = '0%';
+  label.textContent = '0 / 0';
+  try {
+    await fn((done, total) => {
+      fill.style.width = (done / total * 100) + '%';
+      label.textContent = done + ' / ' + total;
+    });
+  } catch (err) {
+    console.error(err);
+    showToast(err && err.message === 'zip-too-big' ? 'ZIP terlalu besar. Gunakan download satu per satu.' : 'Gagal membuat file');
+  } finally {
+    btns.forEach((b) => { b.disabled = false; });
+    setTimeout(() => { wrap.hidden = true; fill.style.width = '0%'; }, 900);
+  }
+}
+
+async function exportSheetImage() {
+  if (!ensureFreshSheet()) {
+    if (!state.exportSheet) showToast('Belum ada spritesheet. Bangun dulu di tab Spritesheet atau Gabung.');
+    return;
+  }
+  await withExportBusy(async () => {
+    const enc = await encodeCanvas(state.exportSheet, getExportOpts());
+    if (!enc) throw new Error('encode');
+    downloadBlob(enc.blob, getBaseName() + '.' + enc.ext);
+    if (enc.fellBack) showToast('Browser tidak mendukung format ini. Disimpan sebagai PNG.', 3600);
+  }, false);
+}
+
+async function exportFramesZip() {
+  if (state.frames.length === 0) { showToast('Tidak ada frame'); return; }
+  const opt = getExportOpts(), base = getBaseName(), total = state.frames.length;
+  await withExportBusy(async (setProgress) => {
+    const encoded = [];
+    for (let i = 0; i < total; i++) {
+      const enc = await encodeCanvas(state.frames[i].canvas, opt);
+      if (!enc) throw new Error('encode');
+      encoded.push(enc);
+      setProgress(i + 1, total);
+      if (i % 4 === 3) await tick();
+    }
+    const used = new Set();
+    const files = [];
+    for (let i = 0; i < total; i++) {
+      files.push({
+        name: uniqueFileName(used, frameBaseName(i, total, base), encoded[i].ext),
+        data: new Uint8Array(await encoded[i].blob.arrayBuffer())
+      });
+    }
+    downloadBlob(makeZip(files), base + '_frames.zip');
+    showToast(encoded.some((e) => e.fellBack) ? 'Browser tidak mendukung format ini. Disimpan sebagai PNG.' : 'ZIP diunduh', encoded.some((e) => e.fellBack) ? 3600 : 2200);
+  });
+}
+
+async function exportFramesOneByOne() {
+  if (state.frames.length === 0) { showToast('Tidak ada frame'); return; }
+  const opt = getExportOpts(), base = getBaseName(), total = state.frames.length;
+  await withExportBusy(async (setProgress) => {
+    const used = new Set();
+    let fell = false;
+    for (let i = 0; i < total; i++) {
+      const enc = await encodeCanvas(state.frames[i].canvas, opt);
+      if (!enc) throw new Error('encode');
+      fell = fell || enc.fellBack;
+      downloadBlob(enc.blob, uniqueFileName(used, frameBaseName(i, total, base), enc.ext));
+      setProgress(i + 1, total);
+      await new Promise((r) => setTimeout(r, 160));
+    }
+    showToast(fell ? 'Browser tidak mendukung format ini. Disimpan sebagai PNG.' : 'Semua frame diunduh', fell ? 3600 : 2200);
+  });
 }
 
 function exportJsonMetadata() {
-  if (!state.sheetMeta) { showToast('Bangun spritesheet dulu di tab Spritesheet'); return; }
+  if (!ensureFreshSheet()) {
+    if (!state.exportSheet) showToast('Bangun spritesheet dulu di tab Spritesheet');
+    return;
+  }
+  if (!state.sheetMeta) {
+    showToast('JSON hanya tersedia untuk sheet dari tab Spritesheet atau gabungan Append Frames');
+    return;
+  }
   const m = state.sheetMeta;
+  const base = getBaseName();
+  const ext = (FORMATS[$('exportFormat').value] || FORMATS.png).ext;
+  const withNames = state.exportSource === 'frames' && state.frames.length === m.count;
   const meta = {
+    image: base + '.' + ext,
     frameWidth: m.frameW,
     frameHeight: m.frameH,
     columns: m.cols,
@@ -913,15 +1161,17 @@ function exportJsonMetadata() {
   for (let i = 0; i < m.count; i++) {
     const col = i % m.cols;
     const row = Math.floor(i / m.cols);
-    meta.frames.push({
+    const fr = {
       index: i,
       x: m.margin + col * (m.frameW + m.padding),
       y: m.margin + row * (m.frameH + m.padding),
       width: m.frameW,
       height: m.frameH
-    });
+    };
+    if (withNames) fr.name = frameBaseName(i, m.count, base);
+    meta.frames.push(fr);
   }
-  downloadBlob(new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' }), 'spritesheet.json');
+  downloadBlob(new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' }), base + '.json');
 }
 
 /* =========================================================================
@@ -931,6 +1181,7 @@ function runMerge() {
   if (!state.mergeA || !state.mergeB) { showToast('Upload kedua spritesheet dulu'); return; }
   const mode = $('mergeMode').value;
   let result;
+  state.sheetMeta = null; // only "append" produces a grid that JSON metadata can describe
 
   if (mode === 'horizontal') {
     result = document.createElement('canvas');
@@ -971,25 +1222,22 @@ function runMerge() {
   }
 
   state.exportSheet = result;
+  state.exportSource = 'merge';
+  state.sheetStale = false;
   paintPreview($('mergeResultCanvas'), result);
-  showToast('Digabungkan. Buka tab Export untuk mengunduh PNG-nya.');
+  showToast('Digabungkan. Buka tab Export untuk mengunduh hasilnya.');
 }
 
 /* =========================================================================
    SPRITESHEET TAB
    ========================================================================= */
-function runBuildSheet() {
-  if (state.frames.length === 0) { showToast('Tidak ada frame untuk disusun'); return; }
-  const settings = {
-    frameW: parseInt($('sheetFrameW').value, 10) || 1,
-    frameH: parseInt($('sheetFrameH').value, 10) || 1,
-    columns: parseInt($('sheetColumns').value, 10) || 1,
-    padding: parseInt($('sheetPadding').value, 10) || 0,
-    margin: parseInt($('sheetMargin').value, 10) || 0
-  };
+function buildAndShowSheet(settings) {
   const result = buildSpritesheet(state.frames.map((f) => f.canvas), settings);
   state.sheetMeta = result;
   state.exportSheet = result.canvas;
+  state.exportSource = 'frames';
+  state.lastSheetSettings = settings;
+  state.sheetStale = false;
 
   paintPreview($('sheetPreviewCanvas'), result.canvas);
   $('sheetTotalFrames').textContent = result.count;
@@ -997,6 +1245,17 @@ function runBuildSheet() {
   $('sheetColsOut').textContent = result.cols;
   $('sheetFrameSize').textContent = result.frameW + '\u00d7' + result.frameH;
   $('sheetResolution').textContent = result.sheetW + '\u00d7' + result.sheetH;
+}
+
+function runBuildSheet() {
+  if (state.frames.length === 0) { showToast('Tidak ada frame untuk disusun'); return; }
+  buildAndShowSheet({
+    frameW: parseInt($('sheetFrameW').value, 10) || 1,
+    frameH: parseInt($('sheetFrameH').value, 10) || 1,
+    columns: parseInt($('sheetColumns').value, 10) || 1,
+    padding: parseInt($('sheetPadding').value, 10) || 0,
+    margin: parseInt($('sheetMargin').value, 10) || 0
+  });
   showToast('Spritesheet dibangun');
 }
 
@@ -1024,6 +1283,9 @@ function initTabs() {
       btn.setAttribute('aria-selected', 'true');
       $('panel-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'background') renderBgPreview();
+      if (btn.dataset.tab === 'paint') { renderPaintPicker(); }
+      else if (state.thumbsDirty) { state.thumbsDirty = false; refreshAllFrameViews(); }
+      if (btn.dataset.tab === 'export') updateExportUI();
     });
   });
 }
@@ -1083,7 +1345,7 @@ function initImportTab() {
         label.textContent = done + ' / ' + total;
       });
       canvases.forEach((c) => state.frames.push({ id: nextId(), canvas: c }));
-      refreshAllFrameViews();
+      framesChanged();
       showToast(canvases.length ? tr('{n} frame diekstrak', canvases.length) : 'Tidak ada frame');
       video.currentTime = originalTime;
     } catch (err) {
@@ -1118,7 +1380,7 @@ function initImportTab() {
         label.textContent = done + ' / ' + total;
       });
       canvases.forEach((c) => state.frames.push({ id: nextId(), canvas: c }));
-      refreshAllFrameViews();
+      framesChanged();
       showToast(tr('{n} frame di-decode dari GIF', canvases.length));
     } catch (err) {
       console.error(err);
@@ -1133,7 +1395,7 @@ function initImportTab() {
     if (!currentFile) return;
     const canvas = await imageFileToCanvas(currentFile);
     state.frames.push({ id: nextId(), canvas });
-    refreshAllFrameViews();
+    framesChanged();
     showToast('Frame ditambahkan');
   });
 }
@@ -1216,7 +1478,7 @@ function initBackgroundTab() {
     const targets = applyAll ? state.frames : [state.frames[0]];
     bgUndo = targets.map((f) => ({ f, copy: cloneCanvas(f.canvas) }));
     targets.forEach((f) => applyBackgroundRemoval(f.canvas, settings));
-    refreshAllFrameViews();
+    framesChanged();
     renderBgPreview();
     showToast(applyAll ? 'Diterapkan ke semua frame' : 'Diterapkan ke frame pertama');
   });
@@ -1228,7 +1490,7 @@ function initBackgroundTab() {
       ctx.drawImage(copy, 0, 0);
     });
     bgUndo = null;
-    refreshAllFrameViews();
+    framesChanged();
     renderBgPreview();
     showToast('Diurungkan');
   });
@@ -1246,7 +1508,7 @@ function initEditorTab() {
       const c = await imageFileToCanvas(f);
       state.frames.push({ id: nextId(), canvas: c });
     }
-    refreshAllFrameViews();
+    framesChanged();
     e.target.value = '';
   });
   $('rebuildSheetBtn').addEventListener('click', runBuildSheet);
@@ -1272,12 +1534,288 @@ function initMergeTab() {
 }
 
 function initExportTab() {
-  $('exportSheetBtn').addEventListener('click', () => {
-    if (!state.exportSheet) { showToast('Belum ada spritesheet. Bangun dulu di tab Spritesheet atau Gabung.'); return; }
-    downloadCanvasAsPNG(state.exportSheet, 'spritesheet.png');
-  });
-  $('exportFramesBtn').addEventListener('click', exportAllFrames);
+  $('exportSheetBtn').addEventListener('click', exportSheetImage);
+  $('exportZipBtn').addEventListener('click', exportFramesZip);
+  $('exportFramesBtn').addEventListener('click', exportFramesOneByOne);
   $('exportJsonBtn').addEventListener('click', exportJsonMetadata);
+  $('exportName').addEventListener('input', updateExportUI);
+  $('exportName').addEventListener('change', () => { $('exportName').value = getBaseName(); updateExportUI(); });
+  $('exportFormat').addEventListener('change', updateExportUI);
+  $('exportQuality').addEventListener('input', updateExportUI);
+  updateExportUI();
+}
+
+/* =========================================================================
+   SPRITE EDITOR (beta): brush, eraser, color, pan, zoom, undo / redo
+   Draws straight onto the frame's own canvas at its real pixel size, so what you paint is
+   exactly what gets exported. Pointer events cover mouse, touch and pen.
+   ========================================================================= */
+const paint = { id: null, tool: 'brush', color: '#000000', size: 1, zoom: 0, undo: [], redo: [], pid: null, last: null, pan: null };
+const ZOOM_STEPS = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+
+function paintFrame() { return state.frames.find((f) => f.id === paint.id) || null; }
+
+function resetPaintHistory() { paint.undo = []; paint.redo = []; paint.pid = null; paint.last = null; paint.pan = null; }
+
+function paintScale() {
+  const f = paintFrame();
+  if (!f) return 1;
+  if (paint.zoom) return paint.zoom;
+  const availW = Math.max(120, $('paintWrap').clientWidth - 14);
+  const availH = Math.max(160, Math.round(window.innerHeight * 0.55));
+  let sc = Math.min(availW / f.canvas.width, availH / f.canvas.height);
+  if (sc >= 1) sc = Math.floor(sc);
+  return Math.max(0.05, Math.min(64, sc));
+}
+
+function repaintPaintView() {
+  const f = paintFrame();
+  if (!f) return;
+  const v = $('paintCanvas');
+  const ctx = v.getContext('2d');
+  ctx.clearRect(0, 0, v.width, v.height);
+  ctx.drawImage(f.canvas, 0, 0);
+}
+
+function renderPaintCanvas() {
+  const f = paintFrame();
+  if (!f) return;
+  const v = $('paintCanvas'), w = f.canvas.width, h = f.canvas.height;
+  if (v.width !== w || v.height !== h) { v.width = w; v.height = h; }
+  repaintPaintView();
+  const sc = paintScale();
+  v.style.width = (w * sc) + 'px';
+  v.style.height = (h * sc) + 'px';
+  $('paintZoomLabel').textContent = Math.round(sc * 100) + '%';
+}
+
+function syncPaintName() { const f = paintFrame(); $('paintName').value = f && f.name ? f.name : ''; }
+
+function updatePaintButtons() {
+  $('paintUndoBtn').disabled = paint.undo.length === 0;
+  $('paintRedoBtn').disabled = paint.redo.length === 0;
+}
+
+function renderPaintPicker() {
+  const strip = $('paintFrameStrip');
+  const prev = paint.id;
+  if (!paintFrame()) paint.id = state.frames.length ? state.frames[0].id : null;
+  if (paint.id !== prev) { resetPaintHistory(); syncPaintName(); }
+  strip.innerHTML = '';
+  state.frames.forEach((f, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'frame-pick' + (f.id === paint.id ? ' sel' : '');
+    b.dataset.id = f.id;
+    b.setAttribute('aria-label', '#' + i);
+    b.appendChild(makeThumbCanvas(f.canvas, 56));
+    b.addEventListener('click', () => selectPaintFrame(f.id));
+    strip.appendChild(b);
+  });
+  const has = !!paint.id;
+  $('paintEmpty').hidden = has;
+  $('paintWork').hidden = !has;
+  if (has) renderPaintCanvas();
+  updatePaintButtons();
+}
+
+function selectPaintFrame(id) {
+  if (id === paint.id) return;
+  paint.id = id;
+  resetPaintHistory();
+  syncPaintName();
+  document.querySelectorAll('#paintFrameStrip .frame-pick').forEach((b) => b.classList.toggle('sel', b.dataset.id === id));
+  renderPaintCanvas();
+  updatePaintButtons();
+}
+
+/* Called after pixels of the selected frame changed (stroke end, undo, redo). */
+function paintChanged() {
+  state.sheetStale = true;
+  state.thumbsDirty = true;
+  const f = paintFrame();
+  const b = $('paintFrameStrip').querySelector('.frame-pick.sel');
+  if (f && b) { b.innerHTML = ''; b.appendChild(makeThumbCanvas(f.canvas, 56)); }
+}
+
+function pushPaintUndo(f) {
+  const w = f.canvas.width, h = f.canvas.height;
+  paint.undo.push(f.canvas.getContext('2d').getImageData(0, 0, w, h));
+  const max = Math.max(3, Math.min(40, Math.floor(48e6 / (w * h * 4)))); // cap memory on big frames
+  while (paint.undo.length > max) paint.undo.shift();
+  paint.redo = [];
+  updatePaintButtons();
+}
+
+function paintStep(from, to) {
+  const f = paintFrame();
+  if (!f || !from.length || paint.pid !== null) return;
+  const ctx = f.canvas.getContext('2d');
+  const snap = from.pop();
+  to.push(ctx.getImageData(0, 0, f.canvas.width, f.canvas.height));
+  ctx.putImageData(snap, 0, 0);
+  repaintPaintView();
+  paintChanged();
+  updatePaintButtons();
+}
+
+function stampAt(ctx, x, y) {
+  const sz = paint.size, o = Math.floor(sz / 2);
+  if (paint.tool === 'eraser') {
+    ctx.clearRect(x - o, y - o, sz, sz);
+  } else {
+    ctx.fillStyle = paint.color;
+    ctx.fillRect(x - o, y - o, sz, sz);
+  }
+}
+
+/* Bresenham: stamps every pixel between two points so fast strokes leave no gaps */
+function strokeLine(ctx, x0, y0, x1, y1) {
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (let guard = 0; guard < 20000; guard++) {
+    stampAt(ctx, x0, y0);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+
+function paintPoint(e) {
+  const f = paintFrame(), r = $('paintCanvas').getBoundingClientRect();
+  const w = f.canvas.width, h = f.canvas.height;
+  const cl = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  return {
+    x: cl(Math.floor((e.clientX - r.left) * w / r.width), -40, w + 40),
+    y: cl(Math.floor((e.clientY - r.top) * h / r.height), -40, h + 40)
+  };
+}
+
+function setPaintColor(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
+  paint.color = hex.toLowerCase();
+  $('paintColor').value = paint.color;
+  $('paintHex').value = paint.color;
+  if (paint.tool !== 'brush') setPaintTool('brush'); // picking a color means you want to paint with it
+}
+
+function setPaintTool(tool) {
+  paint.tool = tool;
+  document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === tool));
+  $('paintCanvas').classList.toggle('pan', tool === 'pan');
+}
+
+function stepPaintZoom(dir) {
+  const cur = paintScale();
+  let next;
+  if (dir > 0) next = ZOOM_STEPS.find((z) => z > cur * 1.0001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
+  else next = [...ZOOM_STEPS].reverse().find((z) => z < cur * 0.9999) || ZOOM_STEPS[0];
+  paint.zoom = next;
+  renderPaintCanvas();
+}
+
+function initPaintTab() {
+  const v = $('paintCanvas'), wrap = $('paintWrap');
+
+  const endStroke = () => {
+    const drew = !paint.pan && paint.last;
+    paint.pid = null; paint.last = null; paint.pan = null;
+    if (drew) { paintChanged(); updatePaintButtons(); }
+  };
+
+  v.addEventListener('pointerdown', (e) => {
+    const f = paintFrame();
+    if (!f || paint.pid !== null) return;                      // ignore a 2nd finger mid-stroke
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    try { v.setPointerCapture(e.pointerId); } catch (err) { /* not fatal */ }
+    paint.pid = e.pointerId;
+    if (paint.tool === 'pan') {
+      paint.pan = { x: e.clientX, y: e.clientY, l: wrap.scrollLeft, t: wrap.scrollTop };
+      return;
+    }
+    pushPaintUndo(f);
+    const pt = paintPoint(e);
+    paint.last = pt;
+    stampAt(f.canvas.getContext('2d'), pt.x, pt.y);
+    repaintPaintView();
+  });
+  v.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== paint.pid) return;
+    if (paint.pan) {
+      wrap.scrollLeft = paint.pan.l - (e.clientX - paint.pan.x);
+      wrap.scrollTop = paint.pan.t - (e.clientY - paint.pan.y);
+      return;
+    }
+    const f = paintFrame();
+    if (!f || !paint.last) return;
+    const pt = paintPoint(e);
+    if (pt.x === paint.last.x && pt.y === paint.last.y) return;
+    strokeLine(f.canvas.getContext('2d'), paint.last.x, paint.last.y, pt.x, pt.y);
+    paint.last = pt;
+    repaintPaintView();
+  });
+  const finish = (e) => { if (e.pointerId === paint.pid) endStroke(); };
+  v.addEventListener('pointerup', finish);
+  v.addEventListener('pointercancel', finish);
+  v.addEventListener('lostpointercapture', finish);
+
+  document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => setPaintTool(b.dataset.tool)));
+  $('paintColor').addEventListener('input', (e) => setPaintColor(e.target.value));
+  $('paintHex').addEventListener('input', (e) => {
+    let val = e.target.value.trim();
+    if (val && val[0] !== '#') val = '#' + val;
+    setPaintColor(val);
+  });
+  $('paintSwatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-color]');
+    if (b) setPaintColor(b.dataset.color);
+  });
+  $('paintSize').addEventListener('input', (e) => {
+    paint.size = parseInt(e.target.value, 10) || 1;
+    $('paintSizeVal').textContent = paint.size;
+  });
+  $('paintUndoBtn').addEventListener('click', () => paintStep(paint.undo, paint.redo));
+  $('paintRedoBtn').addEventListener('click', () => paintStep(paint.redo, paint.undo));
+  $('paintZoomInBtn').addEventListener('click', () => stepPaintZoom(1));
+  $('paintZoomOutBtn').addEventListener('click', () => stepPaintZoom(-1));
+  $('paintFitBtn').addEventListener('click', () => { paint.zoom = 0; renderPaintCanvas(); });
+  $('paintName').addEventListener('input', (e) => {
+    const f = paintFrame();
+    if (f) f.name = e.target.value.trim() ? e.target.value : undefined;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!$('panel-paint').classList.contains('active')) return;
+    const t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); paintStep(paint.undo, paint.redo); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); paintStep(paint.redo, paint.undo); }
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => { if ($('panel-paint').classList.contains('active') && paintFrame()) renderPaintCanvas(); }, 120);
+  });
+}
+
+/* =========================================================================
+   WHAT'S NEW NOTICE (shown once per version)
+   ========================================================================= */
+function initNotice() {
+  const box = $('newsNotice');
+  let seen = null;
+  try { seen = localStorage.getItem('ss.seen'); } catch (e) { /* storage blocked: just show it */ }
+  box.hidden = seen === APP_VERSION;
+  $('newsClose').addEventListener('click', () => {
+    box.hidden = true;
+    try { localStorage.setItem('ss.seen', APP_VERSION); } catch (e) { /* ignore */ }
+  });
 }
 
 /* =========================================================================
@@ -1306,16 +1844,37 @@ const EN = {
   'Seret kartu untuk mengubah urutan. Ketuk \u00d7 untuk menghapus.': 'Drag cards to reorder. Tap \u00d7 to delete.',
   '+ Tambah Gambar': '+ Add Images', 'Gabungkan 2 Spritesheet': 'Merge 2 Spritesheets', 'Mode Gabung': 'Merge Mode',
   'Fit mode (jika ukuran beda)': 'Fit mode (if sizes differ)', 'Gabungkan': 'Merge',
-  'Download Semua Frame (PNG individual)': 'Download All Frames (individual PNGs)',
-  'File diunduh satu per satu oleh browser (tanpa ZIP).': 'Files are downloaded one by one by the browser (no ZIP).',
+  'Download Spritesheet': 'Download Spritesheet',
+  'Download Semua Frame (ZIP)': 'Download All Frames (ZIP)',
+  'Download Frame Satu per Satu': 'Download Frames One by One',
+  'Download JSON Metadata': 'Download JSON Metadata',
+  'Nama file': 'File name', 'Format gambar': 'Image format',
+  'PNG (transparan)': 'PNG (transparent)', 'JPG (tanpa transparansi)': 'JPG (no transparency)', 'WebP (transparan)': 'WebP (transparent)',
+  'Kualitas (': 'Quality (', 'Warna latar JPG': 'JPG background color',
+  'Nama file hasil:': 'Output file names:',
+  'ZIP menyatukan semua frame dalam satu file. Nama frame bisa diubah satu per satu di tab Editor Sprite.': 'A ZIP puts every frame in one file. You can rename frames one by one in the Sprite Editor tab.',
+  'Editor Sprite': 'Sprite Editor',
+  'Pilih frame, lalu gambar langsung di atasnya. Hasilnya ikut ke Export.': 'Pick a frame, then draw right on it. Your changes go into Export.',
+  'Belum ada frame. Import dulu di tab Import.': 'No frames yet. Import some in the Import tab first.',
+  'Alat': 'Tools', 'Geser': 'Pan', 'Ukuran kuas (': 'Brush size (', 'Ulangi': 'Redo',
+  'Nama frame (untuk nama file saat export)': 'Frame name (used as the file name on export)',
+  'Fitur beta: kuas persegi tanpa anti-alias (cocok untuk pixel art). Spritesheet otomatis diperbarui saat export.': 'Beta: square brush with no anti-aliasing (made for pixel art). The spritesheet is refreshed automatically on export.',
+  'Baru di v1.6.0': "What's new in v1.6.0",
+  'Export frame ke ZIP, ganti nama file, format JPG/WebP, dan Editor Sprite (beta).': 'Export frames to ZIP, rename files, JPG/WebP formats, and the Sprite Editor (beta).',
+  'Dibuat oleh': 'Made by', 'Tutup': 'Close',
+  'ZIP diunduh': 'ZIP downloaded', 'Gagal membuat file': 'Failed to create the file',
+  'ZIP terlalu besar. Gunakan download satu per satu.': 'ZIP is too large. Use one-by-one download.',
+  'Browser tidak mendukung format ini. Disimpan sebagai PNG.': "This browser can't encode that format. Saved as PNG.",
+  'Spritesheet diperbarui otomatis dari frame terbaru': 'Spritesheet refreshed automatically from the latest frames',
+  'JSON hanya tersedia untuk sheet dari tab Spritesheet atau gabungan Append Frames': 'JSON is only available for sheets from the Spritesheet tab or an Append Frames merge',
   'auto': 'auto', 'asli': 'original',
   'Format file tidak didukung': 'Unsupported file format', 'Video belum siap': 'Video is not ready yet',
   'Tidak ada frame': 'No frames', 'Tidak ada frame untuk disusun': 'No frames to arrange',
   'Spritesheet dibangun': 'Spritesheet built', 'Bangun spritesheet dulu di tab Spritesheet': 'Build a spritesheet in the Spritesheet tab first',
   'Upload kedua spritesheet dulu': 'Upload both spritesheets first',
-  'Digabungkan. Buka tab Export untuk mengunduh PNG-nya.': 'Merged. Open the Export tab to download the PNG.',
+  'Digabungkan. Buka tab Export untuk mengunduh hasilnya.': 'Merged. Open the Export tab to download the result.',
   'Belum ada spritesheet. Bangun dulu di tab Spritesheet atau Gabung.': 'No spritesheet yet. Build one in the Spritesheet or Merge tab.',
-  'Semua frame diunduh': 'All frames downloaded', 'Gagal membuat PNG': 'Failed to create PNG',
+  'Semua frame diunduh': 'All frames downloaded',
   'Gagal mengekstrak frame video': 'Failed to extract video frames', 'Frame ditambahkan': 'Frame added',
   'Diterapkan ke semua frame': 'Applied to all frames', 'Diterapkan ke frame pertama': 'Applied to the first frame',
   'Hapus frame': 'Delete frame', 'Pindah ke kiri': 'Move left', 'Pindah ke kanan': 'Move right',
@@ -1360,6 +1919,7 @@ function setLang(l) {
   try { localStorage.setItem('ss.lang', l); } catch (e) {}
   applyLang();
   refreshAllFrameViews();
+  updateExportUI();
 }
 
 function setSmooth(v, notify) {
@@ -1397,4 +1957,6 @@ initSheetTab();
 initEditorTab();
 initMergeTab();
 initExportTab();
+initPaintTab();
 initPrefs();
+initNotice();
