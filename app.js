@@ -1,8 +1,8 @@
 'use strict';
 
-/* Spritesheet Studio v1.6.0
+/* Spritesheet Studio v2.0.0
    Made by Farelfhmc - Studio Fhilion. MIT License. */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '2.0.0';
 
 /* =========================================================================
    STATE
@@ -849,12 +849,118 @@ function moveFrame(from, to) {
   framesChanged();
 }
 
+/* Size for a new empty frame: same as the frame being worked on, else the Spritesheet tab's size. */
+function newFrameSize() {
+  const ref = paintFrame() || state.frames[state.frames.length - 1];
+  if (ref) return { w: ref.canvas.width, h: ref.canvas.height };
+  return { w: parseInt($('sheetFrameW').value, 10) || 128, h: parseInt($('sheetFrameH').value, 10) || 128 };
+}
+
+/* Adds a fully transparent frame at position `at` (default: the end) and returns it. */
+function addEmptyFrame(at) {
+  const sz = newFrameSize();
+  const c = document.createElement('canvas');
+  c.width = sz.w;
+  c.height = sz.h;
+  const fr = { id: nextId(), canvas: c };
+  const pos = at == null ? state.frames.length : Math.max(0, Math.min(at, state.frames.length));
+  state.frames.splice(pos, 0, fr);
+  framesChanged();
+  showToast('Frame kosong ditambahkan');
+  return fr;
+}
+
+async function addImageFiles(files) {
+  const imgs = files.filter((f) => f.type && f.type.startsWith('image/'));
+  if (!imgs.length) { showToast('Format file tidak didukung'); return; }
+  let added = 0;
+  for (const f of imgs) {
+    try { state.frames.push({ id: nextId(), canvas: await imageFileToCanvas(f) }); added++; } catch (e) { /* skip unreadable file */ }
+  }
+  framesChanged();
+  showToast(added ? tr('{n} frame ditambahkan', added) : 'Format file tidak didukung');
+}
+
+/* Pointer-based drag to reorder, so it works with mouse, touch and pen (native HTML5 drag does not
+   work on touch screens). Mouse: drag after a few pixels. Touch: press and hold briefly first, so
+   normal scrolling still works. */
+let frameDragActive = false;
+window.addEventListener('touchmove', (e) => { if (frameDragActive && e.cancelable) e.preventDefault(); }, { passive: false });
+
+function startFrameDrag(e, card, f, index, container) {
+  if (e.target.closest('button')) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const pid = e.pointerId, sx = e.clientX, sy = e.clientY, touch = e.pointerType !== 'mouse';
+  let on = false, ghost = null, over = index, timer = 0, scroller = 0, lx = sx, ly = sy, ox = 0, oy = 0;
+  const cards = () => Array.from(container.children);
+  const clearOver = () => cards().forEach((c) => c.classList.remove('drag-over'));
+  const place = () => { ghost.style.left = (lx - ox) + 'px'; ghost.style.top = (ly - oy) + 'px'; };
+  const updateOver = () => {
+    const el = document.elementFromPoint(lx, ly);
+    const c = el && el.closest ? el.closest('.frame-card') : null;
+    clearOver();
+    if (c && c.parentNode === container) { over = cards().indexOf(c); c.classList.add('drag-over'); }
+  };
+  const edgeScroll = () => {
+    const top = $('topbar').offsetHeight + 60;
+    if (ly < top) window.scrollBy(0, -12);
+    else if (ly > window.innerHeight - 70) window.scrollBy(0, 12);
+    updateOver();
+  };
+  const begin = () => {
+    on = true;
+    frameDragActive = true;
+    card.classList.add('dragging');
+    const r = card.getBoundingClientRect();
+    ox = sx - r.left; oy = sy - r.top;
+    ghost = document.createElement('div');
+    ghost.className = 'frame-ghost';
+    ghost.style.width = r.width + 'px';
+    ghost.style.height = r.height + 'px';
+    ghost.appendChild(makeThumbCanvas(f.canvas, 84));
+    document.body.appendChild(ghost);
+    place();
+    scroller = setInterval(edgeScroll, 40);
+    try { if (navigator.vibrate) navigator.vibrate(8); } catch (err) { /* optional */ }
+  };
+  const cleanup = () => {
+    clearTimeout(timer);
+    clearInterval(scroller);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', cleanup);
+    if (ghost) ghost.remove();
+    card.classList.remove('dragging');
+    clearOver();
+    frameDragActive = false;
+  };
+  function onMove(ev) {
+    if (ev.pointerId !== pid) return;
+    lx = ev.clientX; ly = ev.clientY;
+    if (!on) {
+      if (Math.hypot(lx - sx, ly - sy) > (touch ? 10 : 4)) { if (touch) cleanup(); else begin(); }
+      return;
+    }
+    place();
+    updateOver();
+  }
+  function onUp(ev) {
+    if (ev.pointerId !== pid) return;
+    const was = on, to = over;
+    cleanup();
+    if (was && to !== index) moveFrame(index, to);
+  }
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', cleanup);
+  if (touch) timer = setTimeout(begin, 220);
+}
+
 function renderFrameGrid(container) {
   container.innerHTML = '';
   state.frames.forEach((f, index) => {
     const card = document.createElement('div');
     card.className = 'frame-card';
-    card.draggable = true;
 
     const thumbWrap = document.createElement('div');
     thumbWrap.className = 'frame-thumb';
@@ -877,7 +983,7 @@ function renderFrameGrid(container) {
     });
     card.appendChild(delBtn);
 
-    // Touch-friendly reorder controls (native HTML5 drag & drop below is for mouse/desktop)
+    // Arrow buttons: an extra way to reorder besides dragging
     const moveWrap = document.createElement('div');
     moveWrap.style.cssText = 'position:absolute;bottom:2px;right:2px;display:flex;gap:2px;';
     const leftBtn = document.createElement('button');
@@ -898,20 +1004,8 @@ function renderFrameGrid(container) {
     moveWrap.appendChild(rightBtn);
     card.appendChild(moveWrap);
 
-    card.addEventListener('dragstart', (e) => {
-      card.classList.add('dragging');
-      e.dataTransfer.setData('text/plain', String(index));
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    card.addEventListener('dragend', () => card.classList.remove('dragging'));
-    card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
-    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
-    card.addEventListener('drop', (e) => {
-      e.preventDefault();
-      card.classList.remove('drag-over');
-      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      moveFrame(fromIndex, index);
-    });
+    card.addEventListener('pointerdown', (e) => startFrameDrag(e, card, f, index, container));
+    card.addEventListener('contextmenu', (e) => e.preventDefault());
 
     container.appendChild(card);
   });
@@ -1025,7 +1119,7 @@ function getExportOpts() {
 
 function getBaseName() { return sanitizeName($('exportName').value, 'spritesheet'); }
 
-/* File name (without extension) of frame i: custom name from the Sprite Editor, else base_00 */
+/* File name (without extension) of frame i: custom name from Paint Sprite, else base_00 */
 function frameBaseName(i, total, base) {
   const f = state.frames[i];
   const custom = f && f.name ? sanitizeName(f.name, '') : '';
@@ -1274,6 +1368,22 @@ function getBgSettings() {
 /* =========================================================================
    EVENT WIRING
    ========================================================================= */
+function updateMenuCurrent() {
+  const a = document.querySelector('.tab-btn.active');
+  if (a) $('menuCurrent').textContent = a.textContent.trim();
+}
+
+function setMenu(open) {
+  $('topbar').classList.toggle('open', open);
+  $('menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function initMenu() {
+  $('menuBtn').addEventListener('click', () => setMenu(!$('topbar').classList.contains('open')));
+  document.addEventListener('click', (e) => { if (!$('topbar').contains(e.target)) setMenu(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+}
+
 function initTabs() {
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1282,10 +1392,16 @@ function initTabs() {
       btn.classList.add('active');
       btn.setAttribute('aria-selected', 'true');
       $('panel-' + btn.dataset.tab).classList.add('active');
+      document.body.classList.toggle('paint-mode', btn.dataset.tab === 'paint');
+      updateTopbarH();
+      window.scrollTo(0, 0);
+      updateMenuCurrent();
+      setMenu(false);
       if (btn.dataset.tab === 'background') renderBgPreview();
       if (btn.dataset.tab === 'paint') { renderPaintPicker(); }
       else if (state.thumbsDirty) { state.thumbsDirty = false; refreshAllFrameViews(); }
       if (btn.dataset.tab === 'export') updateExportUI();
+      if (btn.dataset.tab === 'player') renderPlayer(); else if (player.playing) stopPlayer();
     });
   });
 }
@@ -1477,10 +1593,13 @@ function initBackgroundTab() {
     const applyAll = $('bgApplyAll').checked;
     const targets = applyAll ? state.frames : [state.frames[0]];
     bgUndo = targets.map((f) => ({ f, copy: cloneCanvas(f.canvas) }));
+    let flattened = 0;
+    targets.forEach((f) => { if (f.layers && f.layers.length > 1) flattened++; dropLayers(f); });   // Paint layers are flattened first
     targets.forEach((f) => applyBackgroundRemoval(f.canvas, settings));
     framesChanged();
     renderBgPreview();
-    showToast(applyAll ? 'Diterapkan ke semua frame' : 'Diterapkan ke frame pertama');
+    if (applyAll) showToast(flattened ? 'Diterapkan ke semua frame (layer diratakan)' : 'Diterapkan ke semua frame');
+    else showToast(flattened ? 'Diterapkan ke frame pertama (layer diratakan)' : 'Diterapkan ke frame pertama');
   });
   $('bgUndoBtn').addEventListener('click', () => {
     if (!bgUndo) { showToast('Tidak ada yang bisa diurungkan'); return; }
@@ -1488,6 +1607,7 @@ function initBackgroundTab() {
       const ctx = f.canvas.getContext('2d');
       ctx.clearRect(0, 0, f.canvas.width, f.canvas.height);
       ctx.drawImage(copy, 0, 0);
+      dropLayers(f);
     });
     bgUndo = null;
     framesChanged();
@@ -1503,15 +1623,27 @@ function initSheetTab() {
 function initEditorTab() {
   $('editorAddImageBtn').addEventListener('click', () => $('editorAddImageInput').click());
   $('editorAddImageInput').addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    for (const f of files) {
-      const c = await imageFileToCanvas(f);
-      state.frames.push({ id: nextId(), canvas: c });
-    }
-    framesChanged();
+    await addImageFiles(Array.from(e.target.files || []));
     e.target.value = '';
   });
+  $('editorAddEmptyBtn').addEventListener('click', () => addEmptyFrame());
   $('rebuildSheetBtn').addEventListener('click', runBuildSheet);
+
+  // drop image files straight onto the Editor to add them as frames
+  const ed = $('panel-editor');
+  const hasFiles = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') !== -1;
+  ['dragenter', 'dragover'].forEach((evt) => ed.addEventListener(evt, (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    ed.classList.add('drop-files');
+  }));
+  ed.addEventListener('dragleave', (e) => { if (!e.relatedTarget || !ed.contains(e.relatedTarget)) ed.classList.remove('drop-files'); });
+  ed.addEventListener('drop', async (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    ed.classList.remove('drop-files');
+    await addImageFiles(Array.from(e.dataTransfer.files));
+  });
 }
 
 function initMergeTab() {
@@ -1546,23 +1678,111 @@ function initExportTab() {
 }
 
 /* =========================================================================
-   SPRITE EDITOR (beta): brush, eraser, color, pan, zoom, undo / redo
-   Draws straight onto the frame's own canvas at its real pixel size, so what you paint is
-   exactly what gets exported. Pointer events cover mouse, touch and pen.
+   PAINT SPRITE: the sprite fills the screen; a compact toolbar floats on top (categories:
+   Tools / Layers / View), frames float at the bottom.
+   Tools: brush, eraser, fill (bucket), eyedrop, pan. Brush and eraser each have their own size.
+   Layers: every frame can have several layers (f.layers). f.canvas always holds the flattened
+   picture of the visible layers, so the sheet, ZIP and every other tab keep working unchanged.
+   Undo / redo covers strokes, fills and every layer change.
+   Pointer events cover mouse, touch and pen.
    ========================================================================= */
-const paint = { id: null, tool: 'brush', color: '#000000', size: 1, zoom: 0, undo: [], redo: [], pid: null, last: null, pan: null };
+const paint = {
+  id: null, tool: 'brush', color: '#000000',
+  sizes: { brush: 1, eraser: 1 },
+  fill: { tolerance: 32, mode: 'contig', sample: 'layer' },
+  cat: 'tools', opDrag: false,
+  zoom: 0, undo: [], redo: [], pid: null, last: null, pan: null, picking: false, padT: 12, padB: 80
+};
 const ZOOM_STEPS = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+const TOOL_OPTS = { brush: true, eraser: true, fill: true };   // tools that have an options popup
+const MAX_LAYERS = 16;
 
 function paintFrame() { return state.frames.find((f) => f.id === paint.id) || null; }
 
-function resetPaintHistory() { paint.undo = []; paint.redo = []; paint.pid = null; paint.last = null; paint.pan = null; }
+function resetPaintHistory() { paint.undo = []; paint.redo = []; paint.pid = null; paint.last = null; paint.pan = null; paint.picking = false; }
+
+/* ---------- layers ---------- */
+let layerCounter = 0;
+function blankCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function newLayerObj(canvas, name) { return { id: 'l' + (layerCounter++), name, canvas, visible: true, opacity: 1 }; }
+
+/* A frame gets its layers the first time it is opened in Paint Sprite: one layer holding the picture */
+function ensureLayers(f) {
+  if (f.layers && f.layers.length) return;
+  f.layers = [newLayerObj(cloneCanvas(f.canvas), 'Layer 1')];
+  f.active = 0;
+  f.layerSeq = 1;
+}
+function activeLayer(f) {
+  ensureLayers(f);
+  f.active = Math.max(0, Math.min(f.active | 0, f.layers.length - 1));
+  return f.layers[f.active];
+}
+function layerCtx(f) { return activeLayer(f).canvas.getContext('2d'); }
+
+/* f.canvas = all visible layers stacked (bottom to top) */
+function compositeFrame(f) {
+  if (!f.layers) return;
+  const ctx = f.canvas.getContext('2d');
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.clearRect(0, 0, f.canvas.width, f.canvas.height);
+  f.layers.forEach((L) => {
+    if (!L.visible) return;
+    ctx.globalAlpha = L.opacity;
+    ctx.drawImage(L.canvas, 0, 0);
+  });
+  ctx.restore();
+}
+
+/* Other tabs (Background) change the flattened picture directly: the layers are flattened into it */
+function dropLayers(f) {
+  f.layers = null;
+  f.active = 0;
+  if (f.id === paint.id) { paint.undo = []; paint.redo = []; }
+}
+
+function snapLayers(f) {
+  const w = f.canvas.width, h = f.canvas.height;
+  return {
+    active: f.active, seq: f.layerSeq,
+    layers: f.layers.map((L) => ({ id: L.id, name: L.name, visible: L.visible, opacity: L.opacity, data: L.canvas.getContext('2d').getImageData(0, 0, w, h) }))
+  };
+}
+function restoreLayers(f, s) {
+  const w = f.canvas.width, h = f.canvas.height;
+  f.layers = s.layers.map((o) => {
+    const c = blankCanvas(w, h);
+    c.getContext('2d').putImageData(o.data, 0, 0);
+    return { id: o.id, name: o.name, visible: o.visible, opacity: o.opacity, canvas: c };
+  });
+  f.active = Math.max(0, Math.min(s.active, f.layers.length - 1));
+  f.layerSeq = s.seq;
+}
+
+/* The paint screen sits right under the top bar, whatever its height is (notches, wrapping) */
+function updateTopbarH() {
+  document.documentElement.style.setProperty('--topbar-h', $('topbar').offsetHeight + 'px');
+}
+
+/* Keeps the sprite clear of the floating bars when it is centred or fitted */
+function layoutPaintPad() {
+  const tb = $('paintToolsBar'), fb = $('paintFramesBar'), wrap = $('paintWrap');
+  paint.padT = tb.hidden ? 12 : tb.offsetHeight + 20;
+  paint.padB = fb.offsetHeight + 20;
+  wrap.style.setProperty('--pt', paint.padT + 'px');
+  wrap.style.setProperty('--pb', paint.padB + 'px');
+}
 
 function paintScale() {
   const f = paintFrame();
   if (!f) return 1;
   if (paint.zoom) return paint.zoom;
-  const availW = Math.max(120, $('paintWrap').clientWidth - 14);
-  const availH = Math.max(160, Math.round(window.innerHeight * 0.55));
+  const wrap = $('paintWrap');
+  const availW = Math.max(120, wrap.clientWidth - 24);
+  const availH = Math.max(120, wrap.clientHeight - paint.padT - paint.padB);
   let sc = Math.min(availW / f.canvas.width, availH / f.canvas.height);
   if (sc >= 1) sc = Math.floor(sc);
   return Math.max(0.05, Math.min(64, sc));
@@ -1577,9 +1797,19 @@ function repaintPaintView() {
   ctx.drawImage(f.canvas, 0, 0);
 }
 
+/* layers changed -> rebuild the flattened picture, then redraw the screen */
+function refreshPaint() {
+  const f = paintFrame();
+  if (!f) return;
+  compositeFrame(f);
+  repaintPaintView();
+}
+
 function renderPaintCanvas() {
   const f = paintFrame();
   if (!f) return;
+  ensureLayers(f);
+  layoutPaintPad();
   const v = $('paintCanvas'), w = f.canvas.width, h = f.canvas.height;
   if (v.width !== w || v.height !== h) { v.width = w; v.height = h; }
   repaintPaintView();
@@ -1587,6 +1817,7 @@ function renderPaintCanvas() {
   v.style.width = (w * sc) + 'px';
   v.style.height = (h * sc) + 'px';
   $('paintZoomLabel').textContent = Math.round(sc * 100) + '%';
+  renderLayerPanel();
 }
 
 function syncPaintName() { const f = paintFrame(); $('paintName').value = f && f.name ? f.name : ''; }
@@ -1594,6 +1825,11 @@ function syncPaintName() { const f = paintFrame(); $('paintName').value = f && f
 function updatePaintButtons() {
   $('paintUndoBtn').disabled = paint.undo.length === 0;
   $('paintRedoBtn').disabled = paint.redo.length === 0;
+}
+
+function scrollPaintStrip() {
+  const strip = $('paintFrameStrip'), b = strip.querySelector('.frame-pick.sel');
+  if (b) strip.scrollLeft = b.offsetLeft - (strip.clientWidth - b.offsetWidth) / 2;
 }
 
 function renderPaintPicker() {
@@ -1608,15 +1844,19 @@ function renderPaintPicker() {
     b.className = 'frame-pick' + (f.id === paint.id ? ' sel' : '');
     b.dataset.id = f.id;
     b.setAttribute('aria-label', '#' + i);
-    b.appendChild(makeThumbCanvas(f.canvas, 56));
+    b.appendChild(makeThumbCanvas(f.canvas, 48));
     b.addEventListener('click', () => selectPaintFrame(f.id));
     strip.appendChild(b);
   });
   const has = !!paint.id;
   $('paintEmpty').hidden = has;
-  $('paintWork').hidden = !has;
-  if (has) renderPaintCanvas();
+  $('paintCanvas').hidden = !has;
+  $('paintToolsBar').hidden = !has;
+  $('paintName').hidden = !has;
+  if (!has) closePaintPops();
+  if (has) renderPaintCanvas(); else layoutPaintPad();
   updatePaintButtons();
+  scrollPaintStrip();
 }
 
 function selectPaintFrame(id) {
@@ -1627,21 +1867,31 @@ function selectPaintFrame(id) {
   document.querySelectorAll('#paintFrameStrip .frame-pick').forEach((b) => b.classList.toggle('sel', b.dataset.id === id));
   renderPaintCanvas();
   updatePaintButtons();
+  scrollPaintStrip();
 }
 
-/* Called after pixels of the selected frame changed (stroke end, undo, redo). */
+/* New empty frame right after the selected one, and jump to it */
+function paintAddEmpty() {
+  const sel = state.frames.findIndex((f) => f.id === paint.id);
+  const fr = addEmptyFrame(sel < 0 ? state.frames.length : sel + 1);
+  selectPaintFrame(fr.id);
+}
+
+/* Called after pixels of the selected frame changed (stroke end, fill, undo, redo, layer change). */
 function paintChanged() {
   state.sheetStale = true;
   state.thumbsDirty = true;
   const f = paintFrame();
   const b = $('paintFrameStrip').querySelector('.frame-pick.sel');
-  if (f && b) { b.innerHTML = ''; b.appendChild(makeThumbCanvas(f.canvas, 56)); }
+  if (f && b) { b.innerHTML = ''; b.appendChild(makeThumbCanvas(f.canvas, 48)); }
+  if (paint.cat === 'layers') renderLayerPanel();
 }
 
 function pushPaintUndo(f) {
+  ensureLayers(f);
   const w = f.canvas.width, h = f.canvas.height;
-  paint.undo.push(f.canvas.getContext('2d').getImageData(0, 0, w, h));
-  const max = Math.max(3, Math.min(40, Math.floor(48e6 / (w * h * 4)))); // cap memory on big frames
+  paint.undo.push(snapLayers(f));
+  const max = Math.max(3, Math.min(40, Math.floor(48e6 / (w * h * 4 * f.layers.length)))); // cap memory on big frames
   while (paint.undo.length > max) paint.undo.shift();
   paint.redo = [];
   updatePaintButtons();
@@ -1650,17 +1900,19 @@ function pushPaintUndo(f) {
 function paintStep(from, to) {
   const f = paintFrame();
   if (!f || !from.length || paint.pid !== null) return;
-  const ctx = f.canvas.getContext('2d');
+  ensureLayers(f);
   const snap = from.pop();
-  to.push(ctx.getImageData(0, 0, f.canvas.width, f.canvas.height));
-  ctx.putImageData(snap, 0, 0);
-  repaintPaintView();
+  to.push(snapLayers(f));
+  restoreLayers(f, snap);
+  refreshPaint();
+  renderLayerPanel();
   paintChanged();
   updatePaintButtons();
 }
 
+/* ---------- brush / eraser ---------- */
 function stampAt(ctx, x, y) {
-  const sz = paint.size, o = Math.floor(sz / 2);
+  const sz = paint.sizes[paint.tool] || 1, o = Math.floor(sz / 2);
   if (paint.tool === 'eraser') {
     ctx.clearRect(x - o, y - o, sz, sz);
   } else {
@@ -1683,6 +1935,62 @@ function strokeLine(ctx, x0, y0, x1, y1) {
   }
 }
 
+/* ---------- fill (bucket) ----------
+   Colors count as "the same" when every channel (R, G, B, A) differs by at most `tolerance`.
+   Two fully transparent pixels always match. Mode: connected area only, or every matching pixel.
+   Sample: look at the active layer only, or at the flattened picture of all visible layers.
+   The result is always painted onto the active layer. */
+function floodFill(f, x, y) {
+  const w = f.canvas.width, h = f.canvas.height;
+  if (x < 0 || y < 0 || x >= w || y >= h) return false;
+  const lctx = layerCtx(f);
+  const dst = lctx.getImageData(0, 0, w, h);
+  const dd = dst.data;
+  const sd = paint.fill.sample === 'all'
+    ? f.canvas.getContext('2d').getImageData(0, 0, w, h).data
+    : new Uint8ClampedArray(dd);                       // a copy, so painting does not disturb the test
+  const tol = paint.fill.tolerance;
+  const i0 = (y * w + x) * 4;
+  const tr = sd[i0], tg = sd[i0 + 1], tb = sd[i0 + 2], ta = sd[i0 + 3];
+  const match = (i) => {
+    const a = sd[i + 3];
+    if (a === 0 && ta === 0) return true;
+    return Math.abs(sd[i] - tr) <= tol && Math.abs(sd[i + 1] - tg) <= tol && Math.abs(sd[i + 2] - tb) <= tol && Math.abs(a - ta) <= tol;
+  };
+  const c = hexToRgb(paint.color);
+  const put = (i) => { dd[i] = c.r; dd[i + 1] = c.g; dd[i + 2] = c.b; dd[i + 3] = 255; };
+
+  if (paint.fill.mode === 'global') {
+    for (let p = 0; p < w * h; p++) if (match(p * 4)) put(p * 4);
+  } else {
+    const seen = new Uint8Array(w * h);
+    const stack = [x, y];
+    while (stack.length) {
+      const cy = stack.pop(), cx = stack.pop();
+      let lx = cx;
+      while (lx >= 0 && !seen[cy * w + lx] && match((cy * w + lx) * 4)) lx--;
+      lx++;
+      let up = false, down = false;
+      for (let px = lx; px < w; px++) {
+        const p = cy * w + px;
+        if (seen[p] || !match(p * 4)) break;
+        seen[p] = 1;
+        put(p * 4);
+        if (cy > 0) {
+          const u = p - w, ok = !seen[u] && match(u * 4);
+          if (ok && !up) { stack.push(px, cy - 1); up = true; } else if (!ok) up = false;
+        }
+        if (cy < h - 1) {
+          const d = p + w, ok = !seen[d] && match(d * 4);
+          if (ok && !down) { stack.push(px, cy + 1); down = true; } else if (!ok) down = false;
+        }
+      }
+    }
+  }
+  lctx.putImageData(dst, 0, 0);
+  return true;
+}
+
 function paintPoint(e) {
   const f = paintFrame(), r = $('paintCanvas').getBoundingClientRect();
   const w = f.canvas.width, h = f.canvas.height;
@@ -1693,42 +2001,410 @@ function paintPoint(e) {
   };
 }
 
-function setPaintColor(hex) {
+/* keepTool = true while the eyedrop is picking, so the tool is not switched mid-gesture */
+/* ---------- colour wheel: hue ring around a saturation / brightness square ---------- */
+const wheel = { h: 0, s: 0, v: 0, size: 220, ring: 24, dpr: 1, ringCanvas: null, drag: null, pid: null };
+
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r, g, b;
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+    if (h < 0) h += 360;
+  }
+  return [h, max ? d / max : 0, max];
+}
+
+function wheelGeom() {
+  const S = wheel.size, R = S / 2 - 3, ri = R - wheel.ring, half = (ri - 8) / Math.SQRT2;
+  return { S, c: S / 2, R, ri, left: S / 2 - half, top: S / 2 - half, side: half * 2 };
+}
+
+/* the hue ring never changes, so it is drawn once into its own canvas */
+function buildWheelRing() {
+  const g = wheelGeom(), d = wheel.dpr, N = Math.round(g.S * d);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), px = img.data;
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const dx = (x + 0.5) * g.S / N - g.c, dy = (y + 0.5) * g.S / N - g.c, r = Math.hypot(dx, dy);
+      const a = Math.min(1, Math.max(0, g.R - r + 0.5)) * Math.min(1, Math.max(0, r - g.ri + 0.5));   // soft edges
+      if (a <= 0) continue;
+      let h = Math.atan2(dx, -dy) * 180 / Math.PI;
+      if (h < 0) h += 360;
+      const rgb = hsvToRgb(h, 1, 1), o = (y * N + x) * 4;
+      px[o] = rgb[0]; px[o + 1] = rgb[1]; px[o + 2] = rgb[2]; px[o + 3] = Math.round(a * 255);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  wheel.ringCanvas = cv;
+}
+
+function wheelMarker(ctx, x, y, rgb) {
+  ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgb(' + rgb.join(',') + ')'; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, 9.5, 0, Math.PI * 2);
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.stroke();
+}
+
+function drawWheel(force) {
+  const cv = $('wheelCanvas');
+  if (!cv || (!force && $('paintPop').hidden)) return;       // nothing to draw while the popup is closed
+  if (!wheel.ringCanvas) buildWheelRing();
+  const g = wheelGeom(), N = cv.width, ctx = cv.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, N, N);
+  ctx.drawImage(wheel.ringCanvas, 0, 0);
+  ctx.setTransform(N / g.S, 0, 0, N / g.S, 0, 0);
+  const hue = hsvToRgb(wheel.h, 1, 1);
+  let gr = ctx.createLinearGradient(g.left, 0, g.left + g.side, 0);
+  gr.addColorStop(0, '#fff'); gr.addColorStop(1, 'rgb(' + hue.join(',') + ')');
+  ctx.fillStyle = gr; ctx.fillRect(g.left, g.top, g.side, g.side);
+  gr = ctx.createLinearGradient(0, g.top, 0, g.top + g.side);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, '#000');
+  ctx.fillStyle = gr; ctx.fillRect(g.left, g.top, g.side, g.side);
+  const ang = wheel.h * Math.PI / 180, mr = (g.R + g.ri) / 2;
+  wheelMarker(ctx, g.c + Math.sin(ang) * mr, g.c - Math.cos(ang) * mr, hue);
+  wheelMarker(ctx, g.left + wheel.s * g.side, g.top + (1 - wheel.v) * g.side, hsvToRgb(wheel.h, wheel.s, wheel.v));
+}
+
+function wheelPoint(e) {
+  const r = $('wheelCanvas').getBoundingClientRect(), S = wheel.size;
+  return { x: (e.clientX - r.left) * S / (r.width || S), y: (e.clientY - r.top) * S / (r.height || S) };
+}
+
+function wheelSet(e) {
+  const g = wheelGeom(), p = wheelPoint(e);
+  if (wheel.drag === 'hue') {
+    let h = Math.atan2(p.x - g.c, -(p.y - g.c)) * 180 / Math.PI;
+    wheel.h = h < 0 ? h + 360 : h;
+  } else {
+    wheel.s = Math.min(1, Math.max(0, (p.x - g.left) / g.side));
+    wheel.v = 1 - Math.min(1, Math.max(0, (p.y - g.top) / g.side));
+  }
+  const rgb = hsvToRgb(wheel.h, wheel.s, wheel.v);
+  setPaintColor(rgbToHex(rgb[0], rgb[1], rgb[2]), false, true);
+  drawWheel(true);
+}
+
+function initColorWheel() {
+  const cv = $('wheelCanvas');
+  wheel.dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  cv.width = cv.height = Math.round(wheel.size * wheel.dpr);
+  cv.addEventListener('pointerdown', (e) => {
+    if (wheel.drag) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const g = wheelGeom(), p = wheelPoint(e), r = Math.hypot(p.x - g.c, p.y - g.c);
+    if (r >= g.ri - 4 && r <= g.R + 6) wheel.drag = 'hue';
+    else if (p.x >= g.left - 6 && p.x <= g.left + g.side + 6 && p.y >= g.top - 6 && p.y <= g.top + g.side + 6) wheel.drag = 'sv';
+    else return;
+    e.preventDefault();
+    wheel.pid = e.pointerId;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* not fatal */ }
+    wheelSet(e);
+  });
+  cv.addEventListener('pointermove', (e) => { if (wheel.drag && e.pointerId === wheel.pid) wheelSet(e); });
+  const end = (e) => { if (e.pointerId === wheel.pid) { wheel.drag = null; wheel.pid = null; } };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+}
+
+function setPaintColor(hex, keepTool, fromWheel) {
   if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
   paint.color = hex.toLowerCase();
-  $('paintColor').value = paint.color;
   $('paintHex').value = paint.color;
-  if (paint.tool !== 'brush') setPaintTool('brush'); // picking a color means you want to paint with it
+  $('paintChipFill').style.background = paint.color;
+  if (!fromWheel) {                                   // swatch, hex field or eyedrop: move the wheel to match
+    const c = hexToRgb(paint.color), hsv = rgbToHsv(c.r, c.g, c.b);
+    wheel.s = hsv[1]; wheel.v = hsv[2];
+    if (hsv[1] > 0.001 && hsv[2] > 0.001) wheel.h = hsv[0];   // grey / black have no hue: keep the old one
+    drawWheel();
+  }
+  if (!keepTool && paint.tool !== 'brush' && paint.tool !== 'fill') setPaintTool('brush'); // picking a color means you want to paint with it
 }
 
 function setPaintTool(tool) {
   paint.tool = tool;
-  document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === tool));
-  $('paintCanvas').classList.toggle('pan', tool === 'pan');
+  document.querySelectorAll('#paintToolsBar [data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === tool));
+  const v = $('paintCanvas');
+  v.classList.toggle('tool-pan', tool === 'pan');
+  v.classList.toggle('tool-pick', tool === 'picker');
+  v.classList.toggle('tool-fill', tool === 'fill');
+  if (!$('paintOpts').hidden) { if (TOOL_OPTS[tool]) renderOpts(); else $('paintOpts').hidden = true; }
 }
 
-function stepPaintZoom(dir) {
+/* Eyedrop: read the colour under the pointer from the frame itself (not from the zoomed view) */
+function pickColorAt(e, first) {
+  const f = paintFrame();
+  if (!f) return;
+  const pt = paintPoint(e), w = f.canvas.width, h = f.canvas.height;
+  if (pt.x < 0 || pt.y < 0 || pt.x >= w || pt.y >= h) return;
+  const d = f.canvas.getContext('2d').getImageData(pt.x, pt.y, 1, 1).data;
+  if (d[3] === 0) { if (first) showToast('Piksel transparan'); return; }
+  setPaintColor(rgbToHex(d[0], d[1], d[2]), true);
+}
+
+/* Zoom around a screen point (default: the middle of the screen) so the spot you look at stays put */
+function zoomPaintTo(next, px, py) {
+  const v = $('paintCanvas'), wrap = $('paintWrap');
+  const r = v.getBoundingClientRect();
+  if (px == null) { const wr = wrap.getBoundingClientRect(); px = wr.left + wr.width / 2; py = wr.top + wr.height / 2; }
+  const fx = r.width ? (px - r.left) / r.width : 0.5, fy = r.height ? (py - r.top) / r.height : 0.5;
+  paint.zoom = next;
+  renderPaintCanvas();
+  const r2 = v.getBoundingClientRect();
+  wrap.scrollLeft += (r2.left + fx * r2.width) - px;
+  wrap.scrollTop += (r2.top + fy * r2.height) - py;
+}
+
+function stepPaintZoom(dir, px, py) {
   const cur = paintScale();
   let next;
   if (dir > 0) next = ZOOM_STEPS.find((z) => z > cur * 1.0001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
   else next = [...ZOOM_STEPS].reverse().find((z) => z < cur * 0.9999) || ZOOM_STEPS[0];
-  paint.zoom = next;
-  renderPaintCanvas();
+  zoomPaintTo(next, px, py);
+}
+
+/* ---------- popups: colour, tool options, layers (only one is open at a time) ---------- */
+function closePaintPops() {
+  $('paintPop').hidden = true;
+  $('paintOpts').hidden = true;
+  $('paintColorChip').setAttribute('aria-expanded', 'false');
+}
+
+function renderOpts() {
+  const t = paint.tool, sized = t === 'brush' || t === 'eraser';
+  $('optSizeField').hidden = !sized;
+  $('optFill').hidden = t !== 'fill';
+  if (sized) {
+    $('optSize').value = paint.sizes[t];
+    $('optSizeVal').textContent = paint.sizes[t];
+  }
+  if (t === 'fill') {
+    $('fillTol').value = paint.fill.tolerance;
+    $('fillTolVal').textContent = paint.fill.tolerance;
+    document.querySelectorAll('[data-fillmode]').forEach((b) => b.classList.toggle('on', b.dataset.fillmode === paint.fill.mode));
+    document.querySelectorAll('[data-fillsample]').forEach((b) => b.classList.toggle('on', b.dataset.fillsample === paint.fill.sample));
+  }
+}
+
+function openOpts(show) {
+  const pop = $('paintOpts');
+  if (show) {
+    closePaintPops();
+    renderOpts();
+    pop.hidden = false;
+  } else {
+    pop.hidden = true;
+  }
+}
+
+function setPaintCat(cat) {
+  paint.cat = cat;
+  document.querySelectorAll('#paintCats [data-cat]').forEach((b) => b.classList.toggle('on', b.dataset.cat === cat));
+  document.querySelectorAll('[data-cat-row]').forEach((r) => { r.hidden = r.dataset.catRow !== cat; });
+  closePaintPops();
+  $('paintLayers').hidden = cat !== 'layers';
+  if (cat === 'layers') renderLayerPanel();
+  layoutPaintPad();
+}
+
+/* ---------- layer panel ---------- */
+function layerOp(fn) {
+  const f = paintFrame();
+  if (!f) return;
+  pushPaintUndo(f);
+  fn(f);
+  refreshPaint();
+  paintChanged();
+  renderLayerPanel();
+  updatePaintButtons();
+}
+
+function layerAdd() {
+  const f = paintFrame();
+  if (!f) return;
+  ensureLayers(f);
+  if (f.layers.length >= MAX_LAYERS) { showToast('Maksimal 16 layer'); return; }
+  layerOp((ff) => {
+    ff.layerSeq = (ff.layerSeq || ff.layers.length) + 1;
+    ff.layers.splice(ff.active + 1, 0, newLayerObj(blankCanvas(ff.canvas.width, ff.canvas.height), 'Layer ' + ff.layerSeq));
+    ff.active += 1;
+  });
+}
+
+function layerDuplicate() {
+  const f = paintFrame();
+  if (!f) return;
+  ensureLayers(f);
+  if (f.layers.length >= MAX_LAYERS) { showToast('Maksimal 16 layer'); return; }
+  layerOp((ff) => {
+    const src = activeLayer(ff);
+    const copy = newLayerObj(cloneCanvas(src.canvas), src.name + ' copy');
+    copy.opacity = src.opacity;
+    copy.visible = src.visible;
+    ff.layers.splice(ff.active + 1, 0, copy);
+    ff.active += 1;
+  });
+}
+
+function layerDelete(idx) {
+  const f = paintFrame();
+  if (!f) return;
+  ensureLayers(f);
+  if (f.layers.length <= 1) { showToast('Minimal 1 layer'); return; }
+  layerOp((ff) => {
+    ff.layers.splice(idx, 1);
+    if (idx < ff.active) ff.active -= 1;
+    else if (idx === ff.active) ff.active = Math.min(idx, ff.layers.length - 1);
+  });
+}
+
+function layerMove(idx, dir) {
+  const f = paintFrame();
+  if (!f) return;
+  ensureLayers(f);
+  const to = idx + dir;
+  if (to < 0 || to >= f.layers.length) return;
+  layerOp((ff) => {
+    const t = ff.layers[idx]; ff.layers[idx] = ff.layers[to]; ff.layers[to] = t;
+    if (ff.active === idx) ff.active = to; else if (ff.active === to) ff.active = idx;
+  });
+}
+
+/* Merge the layer into the one below it */
+function layerMergeDown(idx) {
+  const f = paintFrame();
+  if (!f) return;
+  ensureLayers(f);
+  if (idx <= 0) { showToast('Tidak ada layer di bawah'); return; }
+  layerOp((ff) => {
+    const up = ff.layers[idx], lo = ff.layers[idx - 1];
+    if (up.visible) {
+      const ctx = lo.canvas.getContext('2d');
+      ctx.save();
+      ctx.globalAlpha = up.opacity;
+      ctx.drawImage(up.canvas, 0, 0);
+      ctx.restore();
+    }
+    ff.layers.splice(idx, 1);
+    ff.active = idx - 1;
+  });
+  showToast('Layer digabung');
+}
+
+function layerSelect(idx) {
+  const f = paintFrame();
+  if (!f) return;
+  ensureLayers(f);
+  f.active = idx;
+  renderLayerPanel();
+}
+
+function startLayerRename(btn, idx) {
+  const f = paintFrame();
+  if (!f) return;
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'layer-rename'; inp.maxLength = 40; inp.value = f.layers[idx].name;
+  inp.setAttribute('aria-label', 'Nama layer');
+  btn.replaceWith(inp);
+  inp.focus(); inp.select();
+  let done = false;
+  const commit = (save) => {
+    if (done) return;
+    done = true;
+    const v = inp.value.trim();
+    if (save && v && v !== f.layers[idx].name) layerOp((ff) => { ff.layers[idx].name = v; });
+    else renderLayerPanel();
+  };
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(true); else if (e.key === 'Escape') commit(false); });
+  inp.addEventListener('blur', () => commit(true));
+}
+
+function renderLayerPanel() {
+  const f = paintFrame();
+  const list = $('layerList');
+  if (!f || !f.layers) { list.innerHTML = ''; $('layerCurName').textContent = ''; return; }
+  const act = Math.max(0, Math.min(f.active | 0, f.layers.length - 1));
+  const cur = f.layers[act];
+  $('layerCurName').textContent = cur.name + '  \u00b7  ' + (act + 1) + '/' + f.layers.length;
+  $('layerOpacity').value = Math.round(cur.opacity * 100);
+  $('layerOpacityVal').textContent = Math.round(cur.opacity * 100);
+  $('layerMergeBtn').disabled = act === 0;
+  $('layerDupBtn').disabled = f.layers.length >= MAX_LAYERS;
+  $('layerAddBtn').disabled = f.layers.length >= MAX_LAYERS;
+  if ($('paintLayers').hidden) return;   // the list only needs drawing while it is visible
+
+  list.innerHTML = '';
+  const mk = (txt, label, fn, dis) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'layer-btn'; b.textContent = txt;
+    b.setAttribute('aria-label', tr(label)); b.setAttribute('title', tr(label));
+    b.disabled = !!dis;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  for (let i = f.layers.length - 1; i >= 0; i--) {     // top layer first
+    const L = f.layers[i];
+    const row = document.createElement('div');
+    row.className = 'layer-row' + (i === act ? ' sel' : '');
+
+    const vis = document.createElement('input');
+    vis.type = 'checkbox'; vis.checked = L.visible;
+    vis.setAttribute('aria-label', tr('Tampilkan layer'));
+    vis.addEventListener('change', () => layerOp((ff) => { ff.layers[i].visible = vis.checked; }));
+
+    const th = document.createElement('span');
+    th.className = 'layer-thumb';
+    th.appendChild(makeThumbCanvas(L.canvas, 32));
+
+    const name = document.createElement('button');
+    name.type = 'button'; name.className = 'layer-name'; name.textContent = L.name;
+    name.addEventListener('click', () => { if (i === paintFrame().active) startLayerRename(name, i); else layerSelect(i); });
+
+    row.append(vis, th, name,
+      mk('\u2191', 'Naik', () => layerMove(i, 1), i === f.layers.length - 1),
+      mk('\u2193', 'Turun', () => layerMove(i, -1), i === 0),
+      mk('\u00d7', 'Hapus layer', () => layerDelete(i), f.layers.length <= 1));
+    list.appendChild(row);
+  }
 }
 
 function initPaintTab() {
-  const v = $('paintCanvas'), wrap = $('paintWrap');
+  const v = $('paintCanvas'), wrap = $('paintWrap'), pop = $('paintPop'), bar = $('paintToolsBar');
+  initColorWheel();
 
   const endStroke = () => {
-    const drew = !paint.pan && paint.last;
-    paint.pid = null; paint.last = null; paint.pan = null;
+    const drew = !paint.pan && !paint.picking && paint.last;
+    const picked = paint.picking;
+    paint.pid = null; paint.last = null; paint.pan = null; paint.picking = false;
     if (drew) { paintChanged(); updatePaintButtons(); }
+    if (picked) setPaintTool('brush'); // after picking a colour, go back to painting with it
   };
 
   v.addEventListener('pointerdown', (e) => {
     const f = paintFrame();
     if (!f || paint.pid !== null) return;                      // ignore a 2nd finger mid-stroke
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const drawing = paint.tool === 'brush' || paint.tool === 'eraser' || paint.tool === 'fill';
+    if (drawing && !activeLayer(f).visible) { e.preventDefault(); showToast('Layer tersembunyi'); return; }
     e.preventDefault();
     try { v.setPointerCapture(e.pointerId); } catch (err) { /* not fatal */ }
     paint.pid = e.pointerId;
@@ -1736,11 +2412,24 @@ function initPaintTab() {
       paint.pan = { x: e.clientX, y: e.clientY, l: wrap.scrollLeft, t: wrap.scrollTop };
       return;
     }
+    if (paint.tool === 'picker') {
+      paint.picking = true;
+      pickColorAt(e, true);
+      return;
+    }
+    if (paint.tool === 'fill') {
+      const pt = paintPoint(e);
+      pushPaintUndo(f);
+      if (floodFill(f, pt.x, pt.y)) { refreshPaint(); paintChanged(); }
+      else { paint.undo.pop(); }
+      updatePaintButtons();
+      return;                                                  // a fill is one tap: no stroke follows
+    }
     pushPaintUndo(f);
     const pt = paintPoint(e);
     paint.last = pt;
-    stampAt(f.canvas.getContext('2d'), pt.x, pt.y);
-    repaintPaintView();
+    stampAt(layerCtx(f), pt.x, pt.y);
+    refreshPaint();
   });
   v.addEventListener('pointermove', (e) => {
     if (e.pointerId !== paint.pid) return;
@@ -1749,21 +2438,63 @@ function initPaintTab() {
       wrap.scrollTop = paint.pan.t - (e.clientY - paint.pan.y);
       return;
     }
+    if (paint.picking) { pickColorAt(e, false); return; }
     const f = paintFrame();
     if (!f || !paint.last) return;
     const pt = paintPoint(e);
     if (pt.x === paint.last.x && pt.y === paint.last.y) return;
-    strokeLine(f.canvas.getContext('2d'), paint.last.x, paint.last.y, pt.x, pt.y);
+    strokeLine(layerCtx(f), paint.last.x, paint.last.y, pt.x, pt.y);
     paint.last = pt;
-    repaintPaintView();
+    refreshPaint();
   });
   const finish = (e) => { if (e.pointerId === paint.pid) endStroke(); };
   v.addEventListener('pointerup', finish);
   v.addEventListener('pointercancel', finish);
   v.addEventListener('lostpointercapture', finish);
 
-  document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => setPaintTool(b.dataset.tool)));
-  $('paintColor').addEventListener('input', (e) => setPaintColor(e.target.value));
+  // category: Tools / Layers / View
+  document.querySelectorAll('#paintCats [data-cat]').forEach((b) => b.addEventListener('click', () => setPaintCat(b.dataset.cat)));
+
+  // tool buttons: pick the tool; Brush, Eraser and Fill also open their options (tap again to close)
+  document.querySelectorAll('#paintToolsBar [data-tool]').forEach((b) => b.addEventListener('click', () => {
+    const t = b.dataset.tool;
+    const same = paint.tool === t, open = !$('paintOpts').hidden;
+    setPaintTool(t);
+    openOpts(!!TOOL_OPTS[t] && !(same && open));
+  }));
+
+  // brush / eraser size (each tool keeps its own)
+  $('optSize').addEventListener('input', (e) => {
+    const t = paint.tool;
+    if (t !== 'brush' && t !== 'eraser') return;
+    paint.sizes[t] = parseInt(e.target.value, 10) || 1;
+    $('optSizeVal').textContent = paint.sizes[t];
+  });
+  // fill options
+  $('fillTol').addEventListener('input', (e) => {
+    paint.fill.tolerance = parseInt(e.target.value, 10) || 0;
+    $('fillTolVal').textContent = paint.fill.tolerance;
+  });
+  document.querySelectorAll('[data-fillmode]').forEach((b) => b.addEventListener('click', () => { paint.fill.mode = b.dataset.fillmode; renderOpts(); }));
+  document.querySelectorAll('[data-fillsample]').forEach((b) => b.addEventListener('click', () => { paint.fill.sample = b.dataset.fillsample; renderOpts(); }));
+
+  // colour popup under the colour chip
+  $('paintColorChip').addEventListener('click', () => {
+    const open = pop.hidden;
+    if (paint.cat === 'layers') setPaintCat('tools');
+    closePaintPops();
+    pop.hidden = !open;
+    if (open) drawWheel(true);
+    $('paintColorChip').setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  // tapping the sprite or empty space closes popups (and leaves the Layers category so you can paint)
+  document.addEventListener('pointerdown', (e) => {
+    if (!$('panel-paint').classList.contains('active')) return;
+    if (bar.contains(e.target)) return;
+    closePaintPops();
+    if (paint.cat === 'layers' && wrap.contains(e.target)) setPaintCat('tools');
+  });
+
   $('paintHex').addEventListener('input', (e) => {
     let val = e.target.value.trim();
     if (val && val[0] !== '#') val = '#' + val;
@@ -1773,26 +2504,72 @@ function initPaintTab() {
     const b = e.target.closest('button[data-color]');
     if (b) setPaintColor(b.dataset.color);
   });
-  $('paintSize').addEventListener('input', (e) => {
-    paint.size = parseInt(e.target.value, 10) || 1;
-    $('paintSizeVal').textContent = paint.size;
+
+  // layers
+  $('layerAddBtn').addEventListener('click', layerAdd);
+  $('layerDupBtn').addEventListener('click', layerDuplicate);
+  $('layerMergeBtn').addEventListener('click', () => { const f = paintFrame(); if (f) layerMergeDown(f.active | 0); });
+  $('layerOpacity').addEventListener('input', (e) => {
+    const f = paintFrame();
+    if (!f) return;
+    if (!paint.opDrag) { pushPaintUndo(f); paint.opDrag = true; }   // one undo step per drag
+    activeLayer(f).opacity = (parseInt(e.target.value, 10) || 0) / 100;
+    $('layerOpacityVal').textContent = e.target.value;
+    refreshPaint();
+    paintChanged();
   });
+  $('layerOpacity').addEventListener('change', () => { paint.opDrag = false; });
+
   $('paintUndoBtn').addEventListener('click', () => paintStep(paint.undo, paint.redo));
   $('paintRedoBtn').addEventListener('click', () => paintStep(paint.redo, paint.undo));
   $('paintZoomInBtn').addEventListener('click', () => stepPaintZoom(1));
   $('paintZoomOutBtn').addEventListener('click', () => stepPaintZoom(-1));
-  $('paintFitBtn').addEventListener('click', () => { paint.zoom = 0; renderPaintCanvas(); });
+  $('paintFitBtn').addEventListener('click', () => { paint.zoom = 0; renderPaintCanvas(); wrap.scrollLeft = 0; wrap.scrollTop = 0; });
+  $('paintAddFrameBtn').addEventListener('click', paintAddEmpty);
+  $('paintEmptyAddBtn').addEventListener('click', paintAddEmpty);
+  $('paintPlayBtn').addEventListener('click', () => document.querySelector('.tab-btn[data-tab="player"]').click());
+
+  // the bars change height (rows wrap, a category has a different second row): re-fit the sprite so it never overlaps them
+  if (window.ResizeObserver) {
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (!$('panel-paint').classList.contains('active')) return;
+        const before = paint.padT + '/' + paint.padB;
+        layoutPaintPad();
+        if (before !== paint.padT + '/' + paint.padB && !paint.zoom && paintFrame()) renderPaintCanvas();
+      });
+    });
+    ro.observe($('paintToolsBar'));
+    ro.observe($('paintFramesBar'));
+  }
   $('paintName').addEventListener('input', (e) => {
     const f = paintFrame();
     if (f) f.name = e.target.value.trim() ? e.target.value : undefined;
   });
 
+  // Ctrl + wheel (or trackpad pinch) zooms around the pointer; a plain wheel scrolls
+  let wheelAt = 0;
+  wrap.addEventListener('wheel', (e) => {
+    if (!paintFrame() || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const now = Date.now();
+    if (now - wheelAt < 60) return;
+    wheelAt = now;
+    stepPaintZoom(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
+  }, { passive: false });
+
   document.addEventListener('keydown', (e) => {
     if (!$('panel-paint').classList.contains('active')) return;
     const t = e.target && e.target.tagName;
     if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
-    if (!(e.ctrlKey || e.metaKey)) return;
     const k = e.key.toLowerCase();
+    if (!(e.ctrlKey || e.metaKey)) {
+      const tool = { b: 'brush', e: 'eraser', g: 'fill', i: 'picker', h: 'pan' }[k];
+      if (tool && paintFrame()) setPaintTool(tool);
+      return;
+    }
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); paintStep(paint.undo, paint.redo); }
     else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); paintStep(paint.redo, paint.undo); }
   });
@@ -1800,7 +2577,200 @@ function initPaintTab() {
   let rz = 0;
   window.addEventListener('resize', () => {
     clearTimeout(rz);
-    rz = setTimeout(() => { if ($('panel-paint').classList.contains('active') && paintFrame()) renderPaintCanvas(); }, 120);
+    rz = setTimeout(() => {
+      updateTopbarH();
+      if ($('panel-paint').classList.contains('active') && paintFrame()) renderPaintCanvas();
+    }, 120);
+  });
+
+  setPaintColor(paint.color, true);
+  setPaintCat('tools');
+}
+
+/* =========================================================================
+   PLAYER: plays the frames as an animation (it shows the flattened picture of every frame)
+   ========================================================================= */
+const player = { i: 0, playing: false, fps: 12, loop: 'loop', dir: 1, zoom: 0, bg: 'checker', from: 1, to: 1, toAuto: true, raf: 0, last: 0, acc: 0 };
+
+/* the frames that take part in the loop, as 0-based indexes [first, last] */
+function playerRange() {
+  const n = state.frames.length;
+  const a = Math.min(Math.max(1, player.from | 0), n);
+  const b = Math.min(Math.max(a, player.to | 0), n);
+  return [a - 1, b - 1];
+}
+
+function playerScale(f) {
+  if (player.zoom) return player.zoom;
+  const st = $('playerStage');
+  const availW = Math.max(60, st.clientWidth - 34);
+  const availH = Math.max(120, Math.min(window.innerHeight * 0.55, 520));
+  let sc = Math.min(availW / f.canvas.width, availH / f.canvas.height);
+  if (sc >= 1) sc = Math.floor(sc);
+  return Math.max(0.05, Math.min(64, sc));
+}
+
+function drawPlayer() {
+  const f = state.frames[player.i];
+  if (!f) return;
+  const v = $('playerCanvas'), w = f.canvas.width, h = f.canvas.height;
+  if (v.width !== w || v.height !== h) { v.width = w; v.height = h; }
+  const ctx = v.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(f.canvas, 0, 0);
+  const sc = playerScale(f);
+  v.style.width = (w * sc) + 'px';
+  v.style.height = (h * sc) + 'px';
+  $('playerInfo').textContent = (player.i + 1) + ' / ' + state.frames.length;
+  $('playerName').textContent = f.name || '';
+  $('playerScrub').value = player.i + 1;
+}
+
+function updatePlayerBtn() {
+  const b = $('playerPlay'), key = player.playing ? 'Jeda' : 'Putar';
+  b.querySelector('.ic-play').hidden = player.playing;
+  b.querySelector('.ic-pause').hidden = !player.playing;
+  b['__id_aria-label'] = key;                      // keeps the EN / ID switch in step with the icon
+  b.setAttribute('aria-label', tr(key));
+}
+
+function stopPlayer() {
+  cancelAnimationFrame(player.raf);
+  player.playing = false;
+  updatePlayerBtn();
+}
+
+/* moves to the next frame of the loop; returns false when a "once" run has ended */
+function advancePlayer() {
+  const [a, b] = playerRange();
+  if (player.i < a || player.i > b) { player.i = a; player.dir = 1; return true; }
+  if (a === b) return player.loop !== 'once';
+  let next = player.i + player.dir;
+  if (next > b || next < a) {
+    if (player.loop === 'once') return false;
+    if (player.loop === 'pingpong') { player.dir = -player.dir; next = player.i + player.dir; }
+    else next = a;
+  }
+  player.i = next;
+  return true;
+}
+
+function playerTick(now) {
+  if (!player.playing) return;
+  player.raf = requestAnimationFrame(playerTick);
+  const step = 1000 / player.fps;
+  player.acc += now - player.last;
+  player.last = now;
+  if (player.acc > step * 5) player.acc = step;      // the tab was in the background: do not fast-forward
+  let moved = false;
+  while (player.acc >= step && player.playing) {
+    player.acc -= step;
+    if (advancePlayer()) moved = true; else stopPlayer();
+  }
+  if (moved) drawPlayer();
+}
+
+function startPlayer() {
+  if (!state.frames.length) return;
+  const [a, b] = playerRange();
+  if (player.i < a || (player.loop === 'once' && player.i >= b)) { player.i = a; player.dir = 1; drawPlayer(); }
+  player.playing = true;
+  player.last = performance.now();
+  player.acc = 0;
+  updatePlayerBtn();
+  player.raf = requestAnimationFrame(playerTick);
+}
+
+function togglePlayer() { if (player.playing) stopPlayer(); else startPlayer(); }
+
+function stepPlayer(d) {
+  const n = state.frames.length;
+  if (!n) return;
+  stopPlayer();
+  player.i = (player.i + d + n) % n;
+  drawPlayer();
+}
+
+function syncPlayerInputs() {
+  const n = state.frames.length;
+  $('playerFrom').max = n; $('playerTo').max = n;
+  $('playerFrom').value = player.from;
+  $('playerTo').value = player.to;
+  $('playerScrub').max = n;
+}
+
+function applyPlayerBg() {
+  $('playerStage').className = 'player-stage ' + (player.bg === 'checker' ? 'checker-bg' : 'bg-' + player.bg);
+}
+
+function renderPlayer() {
+  const n = state.frames.length;
+  $('playerEmpty').hidden = n > 0;
+  $('playerBody').hidden = n === 0;
+  if (!n) { stopPlayer(); return; }
+  if (player.i >= n) player.i = n - 1;
+  player.from = Math.min(Math.max(1, player.from | 0), n);
+  if (player.toAuto || !player.to || player.to > n) player.to = n;
+  if (player.to < player.from) player.to = player.from;
+  syncPlayerInputs();
+  applyPlayerBg();
+  drawPlayer();
+  updatePlayerBtn();
+}
+
+function initPlayerTab() {
+  try { const s = parseInt(localStorage.getItem('ss.playerFps'), 10); if (s >= 1 && s <= 60) player.fps = s; } catch (e) {}
+  $('playerFps').value = player.fps;
+  $('playerFpsVal').textContent = player.fps;
+  $('playerFps').addEventListener('input', (e) => {
+    player.fps = Math.min(60, Math.max(1, parseInt(e.target.value, 10) || 12));
+    $('playerFpsVal').textContent = player.fps;
+    try { localStorage.setItem('ss.playerFps', String(player.fps)); } catch (err) {}
+  });
+  $('playerPlay').addEventListener('click', togglePlayer);
+  $('playerPrev').addEventListener('click', () => stepPlayer(-1));
+  $('playerNext').addEventListener('click', () => stepPlayer(1));
+  $('playerScrub').addEventListener('input', (e) => { player.i = (parseInt(e.target.value, 10) || 1) - 1; drawPlayer(); });
+
+  const bindSeg = (attr, fn) => {
+    const btns = document.querySelectorAll('[' + attr + ']');
+    btns.forEach((b) => b.addEventListener('click', () => {
+      btns.forEach((x) => x.classList.toggle('on', x === b));
+      fn(b.getAttribute(attr));
+    }));
+  };
+  bindSeg('data-ploop', (v) => { player.loop = v; player.dir = 1; });
+  bindSeg('data-pzoom', (v) => { player.zoom = parseInt(v, 10) || 0; drawPlayer(); });
+  bindSeg('data-pbg', (v) => { player.bg = v; applyPlayerBg(); });
+
+  const n = () => state.frames.length;
+  $('playerFrom').addEventListener('change', (e) => {
+    player.from = Math.min(Math.max(1, parseInt(e.target.value, 10) || 1), n());
+    if (player.to < player.from) player.to = player.from;
+    syncPlayerInputs();
+  });
+  $('playerTo').addEventListener('change', (e) => {
+    player.to = Math.min(Math.max(1, parseInt(e.target.value, 10) || n()), n());
+    player.toAuto = false;
+    if (player.from > player.to) player.from = player.to;
+    syncPlayerInputs();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!$('panel-player').classList.contains('active') || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      if (t !== 'BUTTON') togglePlayer();            // a focused button already reacts to Space itself
+    } else if (e.key === 'ArrowLeft') { e.preventDefault(); stepPlayer(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); stepPlayer(1); }
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => { if ($('panel-player').classList.contains('active') && state.frames.length) drawPlayer(); }, 120);
   });
 }
 
@@ -1822,6 +2792,14 @@ function initNotice() {
    LANGUAGE (ID default text lives in the HTML; EN is swapped in from this table)
    ========================================================================= */
 const EN = {
+  'Player Animasi': 'Animation Player',
+  'Belum ada frame untuk diputar. Import dulu di tab Import, atau buat frame di Paint Sprite.': 'No frames to play yet. Import some in the Import tab, or create frames in Paint Sprite.',
+  'Frame sebelumnya': 'Previous frame', 'Frame berikutnya': 'Next frame', 'Posisi frame': 'Frame position',
+  'Putar': 'Play', 'Jeda': 'Pause', 'Putar animasi': 'Play animation', 'Kecepatan (': 'Speed (',
+  'Mode putar': 'Play mode', 'Ulang': 'Loop', 'Bolak-balik': 'Ping-pong', 'Sekali': 'Once',
+  'Skala': 'Scale', 'Latar': 'Background', 'Dari frame': 'From frame', 'Sampai frame': 'To frame',
+  'Spasi = putar / jeda, \u2190 \u2192 = pindah frame.': 'Space = play / pause, \u2190 \u2192 = change frame.',
+  'Lingkaran warna': 'Color wheel',
   'Bagian aplikasi': 'App sections', 'Gabung': 'Merge',
   'Seret file ke sini atau ketuk untuk memilih': 'Drop a file here or tap to choose',
   'Pilih File': 'Choose File', 'Pratinjau': 'Preview', 'Durasi:': 'Duration:', 'Resolusi:': 'Resolution:',
@@ -1841,8 +2819,9 @@ const EN = {
   'Jika tidak dicentang, perubahan hanya diterapkan ke frame pertama.': 'If unchecked, only the first frame is changed.',
   'Terapkan': 'Apply', 'Urungkan': 'Undo', 'Warna': 'Color', 'Bangun Spritesheet': 'Build Spritesheet',
   'Total frame:': 'Total frames:', 'Ukuran frame:': 'Frame size:', 'Resolusi sheet:': 'Sheet resolution:',
-  'Seret kartu untuk mengubah urutan. Ketuk \u00d7 untuk menghapus.': 'Drag cards to reorder. Tap \u00d7 to delete.',
-  '+ Tambah Gambar': '+ Add Images', 'Gabungkan 2 Spritesheet': 'Merge 2 Spritesheets', 'Mode Gabung': 'Merge Mode',
+  'Tahan lalu seret kartu untuk mengubah urutan (di ponsel, tahan sebentar dulu). Seret gambar dari perangkat ke sini untuk menambah frame. Ketuk \u00d7 untuk menghapus.': 'Hold and drag cards to reorder (on a phone, press and hold first). Drag images from your device in here to add frames. Tap \u00d7 to delete.',
+  '+ Tambah Gambar': '+ Add Images', '+ Frame Kosong': '+ Empty Frame', 'Frame kosong ditambahkan': 'Empty frame added',
+  'Tambah frame kosong': 'Add empty frame', '{n} frame ditambahkan': '{n} frames added', 'Piksel transparan': 'Transparent pixel', 'Gabungkan 2 Spritesheet': 'Merge 2 Spritesheets', 'Mode Gabung': 'Merge Mode',
   'Fit mode (jika ukuran beda)': 'Fit mode (if sizes differ)', 'Gabungkan': 'Merge',
   'Download Spritesheet': 'Download Spritesheet',
   'Download Semua Frame (ZIP)': 'Download All Frames (ZIP)',
@@ -1852,15 +2831,23 @@ const EN = {
   'PNG (transparan)': 'PNG (transparent)', 'JPG (tanpa transparansi)': 'JPG (no transparency)', 'WebP (transparan)': 'WebP (transparent)',
   'Kualitas (': 'Quality (', 'Warna latar JPG': 'JPG background color',
   'Nama file hasil:': 'Output file names:',
-  'ZIP menyatukan semua frame dalam satu file. Nama frame bisa diubah satu per satu di tab Editor Sprite.': 'A ZIP puts every frame in one file. You can rename frames one by one in the Sprite Editor tab.',
-  'Editor Sprite': 'Sprite Editor',
-  'Pilih frame, lalu gambar langsung di atasnya. Hasilnya ikut ke Export.': 'Pick a frame, then draw right on it. Your changes go into Export.',
-  'Belum ada frame. Import dulu di tab Import.': 'No frames yet. Import some in the Import tab first.',
+  'ZIP menyatukan semua frame dalam satu file. Nama frame bisa diubah satu per satu di tab Paint Sprite.': 'A ZIP puts every frame in one file. You can rename frames one by one in the Paint Sprite tab.',
+  'Belum ada frame. Import dulu di tab Import, atau buat frame kosong.': 'No frames yet. Import some in the Import tab, or create an empty frame.',
   'Alat': 'Tools', 'Geser': 'Pan', 'Ukuran kuas (': 'Brush size (', 'Ulangi': 'Redo',
-  'Nama frame (untuk nama file saat export)': 'Frame name (used as the file name on export)',
-  'Fitur beta: kuas persegi tanpa anti-alias (cocok untuk pixel art). Spritesheet otomatis diperbarui saat export.': 'Beta: square brush with no anti-aliasing (made for pixel art). The spritesheet is refreshed automatically on export.',
-  'Baru di v1.6.0': "What's new in v1.6.0",
-  'Export frame ke ZIP, ganti nama file, format JPG/WebP, dan Editor Sprite (beta).': 'Export frames to ZIP, rename files, JPG/WebP formats, and the Sprite Editor (beta).',
+  'Kategori': 'Category', 'Lihat': 'View', 'Ukuran (': 'Size (', 'Opasitas (': 'Opacity (',
+  'Makin besar, makin banyak warna yang mirip ikut terisi.': 'Higher values also fill more similar colors.',
+  'Area isi': 'Fill area', 'Terhubung': 'Connected', 'Semua warna': 'All colors',
+  'Ambil warna dari': 'Sample colors from', 'Layer ini': 'This layer', 'Semua layer': 'All layers',
+  'Duplikat': 'Duplicate', 'Gabung ke bawah': 'Merge down', 'Nama layer': 'Layer name',
+  'Tampilkan layer': 'Show layer', 'Hapus layer': 'Delete layer', 'Naik': 'Move up', 'Turun': 'Move down',
+  'Layer tersembunyi': 'Layer is hidden', 'Maksimal 16 layer': 'Maximum 16 layers', 'Minimal 1 layer': 'At least 1 layer',
+  'Tidak ada layer di bawah': 'No layer below', 'Layer digabung': 'Layer merged',
+  'Diterapkan ke semua frame (layer diratakan)': 'Applied to all frames (layers flattened)',
+  'Diterapkan ke frame pertama (layer diratakan)': 'Applied to the first frame (layers flattened)',
+  'Nama frame (opsional)': 'Frame name (optional)',
+  'Baru di v2.0.0': "What's new in v2.0.0",
+  'Tampilan baru dengan menu hamburger. Paint Sprite kini layar penuh dengan toolbar ringkas per kategori, layer, fill dengan tolerance, ukuran brush dan eraser sendiri-sendiri, lingkaran warna, plus frame kosong dan seret-lepas frame di Editor. Ada juga Player untuk memutar animasi dari frame-framemu.': 'New look with a hamburger menu. Paint Sprite is now full screen with a compact toolbar in categories, layers, a fill with tolerance, separate brush and eraser sizes, a color wheel, plus empty frames and drag-and-drop frames in the Editor. There is also a Player to play your frames as an animation.',
+  'Tampilan': 'Display', 'Bahasa': 'Language', 'Tema': 'Theme', 'Terang': 'Light', 'Gelap': 'Dark', 'Bahan': 'Source', 'Hasil': 'Output',
   'Dibuat oleh': 'Made by', 'Tutup': 'Close',
   'ZIP diunduh': 'ZIP downloaded', 'Gagal membuat file': 'Failed to create the file',
   'ZIP terlalu besar. Gunakan download satu per satu.': 'ZIP is too large. Use one-by-one download.',
@@ -1912,6 +2899,7 @@ function applyLang() {
     });
   });
   document.querySelectorAll('[data-lang]').forEach((b) => b.classList.toggle('on', b.dataset.lang === state.lang));
+  updateMenuCurrent();
 }
 
 function setLang(l) {
@@ -1932,7 +2920,16 @@ function setSmooth(v, notify) {
   if (notify) showToast('Rendering diubah. Bangun ulang spritesheet untuk menerapkannya.');
 }
 
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.classList.toggle('on', b.dataset.themeSet === t));
+  try { localStorage.setItem('ss.theme', t); } catch (e) {}
+}
+
 function initPrefs() {
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themeSet)));
+  const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.classList.toggle('on', b.dataset.themeSet === cur));
   let lang = (navigator.language || 'id').toLowerCase().startsWith('id') ? 'id' : 'en';
   let smooth = false;
   try {
@@ -1950,6 +2947,7 @@ function initPrefs() {
    INIT
    ========================================================================= */
 initTabs();
+initMenu();
 initDropzone();
 initImportTab();
 initBackgroundTab();
@@ -1958,5 +2956,6 @@ initEditorTab();
 initMergeTab();
 initExportTab();
 initPaintTab();
+initPlayerTab();
 initPrefs();
 initNotice();

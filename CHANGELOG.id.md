@@ -2,10 +2,34 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.0.0 — 2026-10-31
+### Diubah
+- **Menu hamburger.** Bar atas sekarang hanya ikon hamburger dan nama bagian yang sedang dibuka. Menunya memuat bagian dalam tiga kategori: **Bahan** (Import, Background), **Edit** (Editor, Paint Sprite), dan **Hasil** (Spritesheet, Gabung, Export), dengan tombol Terang / Gelap, Pixelated / Smoothed, dan ID / EN di bagian bawah. Menu menutup sendiri saat kamu memilih bagian atau mengetuk di luar. Tidak ada yang digeser ke samping.
+- **Warna baru dan tema Terang / Gelap.** Abu-abu dingin dengan satu aksen hijau, tanpa krem atau coklat. Pilih **Terang** atau **Gelap** di menu; pertama kali mengikuti sistem, lalu pilihanmu diingat.
+- **Bentuk lebih polos.** Tidak ada kartu berkotak: bagian dipisah garis tipis. Kolom isian, tombol, dan slider standar dengan sudut sedikit membulat.
+- Pindah bagian otomatis menggulung ke atas.
+- Tab **Editor Sprite** sekarang bernama **Paint Sprite** (lihat di bawah). Selain yang tercatat di sini, semua alat, pengaturan, dan export bekerja seperti di 1.6.
+
+### Ditambahkan
+- **Paint Sprite layar penuh.** Gambar sprite sekarang memenuhi seluruh layar. Toolbar melayang ada tepat di bawah hamburger dan bar frame melayang ada di bagian bawah (pilih frame, tambah frame kosong, ganti nama). Zoom tetap bisa: tombol − / +, **Fit**, dan Ctrl + scroll mouse atau cubit di trackpad pada desktop, selalu di sekitar bagian yang sedang kamu lihat. Bar frame dan toolbar tidak menutupi sprite.
+- **Alat Eyedrop** di Paint Sprite. Ketuk atau seret di atas sprite untuk mengambil warnanya; setelah itu aplikasi kembali ke Brush. Piksel transparan diabaikan. Pintasan: B Brush, E Eraser, G Fill, I Eyedrop, H Geser.
+- **Toolbar ringkas dengan kategori.** Toolbar Paint Sprite sekarang selalu dua baris pendek, jadi tidak lagi memanjang ke bawah atau ke samping. Baris atas berisi kategori **Alat**, **Layer**, dan **Lihat**, kotak warna, dan urungkan / ulangi (sekarang berupa ikon). Baris di bawahnya berubah sesuai kategori: alat (Brush, Eraser, Fill, Eyedrop, Geser), layer yang aktif, atau kontrol zoom.
+- **Pengaturan Brush dan Eraser.** Ketuk **Brush** atau **Eraser** untuk membuka pengaturannya. Setiap alat punya *Ukuran* sendiri (1–64 px; sebelumnya satu ukuran 1–32 px untuk keduanya, tersembunyi di popup warna). Ketuk alatnya lagi untuk menutup.
+- **Alat Fill (ember)** dengan pengaturan: *Tolerance* (0–255), *Area isi* (**Terhubung** atau **Semua warna**), dan *Ambil warna dari* (**Layer ini** atau **Semua layer**). Satu ketukan mengisi, dan bisa diurungkan. Pintasan: G.
+- **Layer.** Setiap frame bisa punya sampai 16 layer: tambah, duplikat, hapus, ubah urutan (↑ ↓), tampil / sembunyi, ganti nama (ketuk nama layer yang terpilih), *Opasitas*, dan **Gabung ke bawah**. Menggambar, menghapus, dan mengisi terjadi di layer yang terpilih. Urungkan / ulangi sekarang mencakup semua perubahan layer. Sheet, ZIP, dan JSON memakai gambar gabungan dari layer yang terlihat, jadi bagian lain tidak berubah. Memakai **Background → Terapkan / Urungkan** pada sebuah frame meratakan layernya menjadi satu. Layer tersimpan selama halaman tetap terbuka, seperti frame.
+- **Frame kosong.** **+ Frame Kosong** di Editor menambah frame transparan kosong di bagian akhir; **+** di Paint Sprite menambahnya tepat setelah frame terpilih lalu memilihnya. Ukurannya sama dengan frame yang sedang dikerjakan (atau ukuran frame di tab Spritesheet kalau belum ada frame).
+- **Seret dan lepas di Editor.** Mengubah urutan frame dengan menyeret sekarang bisa dengan mouse, sentuh, dan pen (sentuh: tahan kartu sebentar lalu seret; halaman ikut menggulung saat kamu menyeret ke tepi). Kamu juga bisa menyeret file gambar dari perangkat ke Editor untuk menambahnya sebagai frame. Tombol ◀ ▶ tetap ada.
+- **Player** (tab baru, di bawah Edit). Memutar frame sebagai animasi: Putar / Jeda, frame sebelumnya / berikutnya, dan slider untuk menggeser posisi. *Kecepatan* 1–60 FPS (diingat), *Mode putar* (**Ulang**, **Bolak-balik**, **Sekali**), *Skala* (**Fit** atau 1×, 2×, 4×, 8×), *Latar* (**Checker**, **Gelap**, **Terang**), dan **Dari frame / Sampai frame** untuk mengulang sebagian animasi saja. Pintasan: Spasi dan ← →. Tombol ▶ di bar frame Paint Sprite membukanya langsung. Player menampilkan gambar gabungan tiap frame, jadi layer dan nama tetap dihormati.
+- **Lingkaran warna** di Paint Sprite. Kotak warna sekarang membuka lingkaran warna, bukan kotak warna bawaan browser: seret cincin untuk memilih warna, dan kotak di dalamnya untuk kejenuhan dan kecerahan. Bisa dipakai dengan mouse, sentuh, dan pen. Kolom hex dan warna cepat tetap ada, Eyedrop menggeser lingkaran ke warna yang diambil, dan abu-abu / hitam mempertahankan warna terakhir.
+
+### Diperbaiki
+- **Paint Sprite: frame melebar atau gepeng setelah memilih beberapa alat.** Alat Eyedrop memakai nama gaya (`pick`) yang sama dengan tab Background untuk membatasi kanvasnya sampai 240 px, sehingga sprite tertekan tingginya dan melebar ke samping. Sekarang setiap alat punya nama gaya sendiri dan kanvas Paint tidak bisa dibatasi lagi.
+- **Paint Sprite: frame bisa menimpa toolbar.** Saat tinggi toolbar berubah (pindah kategori, satu baris terlipat di layar sempit), sprite tetap berukuran lama. Sekarang ukurannya menyesuaikan sendiri setiap kali tinggi toolbar atau bar frame berubah.
+
 ## 1.6.0 — 2026-10-25
 ### Ditambahkan
 - **Export semua frame jadi satu ZIP** (tombol baru di tab Export). ZIP dibuat di dalam aplikasi: tanpa library, tidak ada yang diunggah.
-- **Ubah nama file download.** Kolom *Nama file* yang baru menamai sheet (`nama.png`), frame (`nama_00.png`), ZIP (`nama_frames.zip`), dan JSON (`nama.json`). Tiap frame juga bisa diberi nama sendiri di Editor Sprite. Karakter berbahaya dihapus dan nama kembar diberi `_2`, `_3`.
+- **Ubah nama file download.** Kolom *Nama file* yang baru menamai sheet (`nama.png`), frame (`nama_00.png`), ZIP (`nama_frames.zip`), dan JSON (`nama.json`). Tiap frame juga bisa diberi nama sendiri di Editor Sprite (sekarang Paint Sprite). Karakter berbahaya dihapus dan nama kembar diberi `_2`, `_3`.
 - **Format export lebih banyak:** PNG, JPG, dan WebP, dengan slider kualitas. JPG mengisi area transparan dengan warna pilihanmu (bawaan putih). Kalau browser tidak bisa membuat format itu, file disimpan sebagai PNG dan kamu diberi tahu.
 - **Editor Sprite (beta)**, tab baru: **Brush**, **Eraser**, warna (picker, hex, atau warna cepat), ukuran kuas, geser, zoom, urungkan / ulangi (juga Ctrl+Z / Ctrl+Y). Bisa dengan mouse, sentuh, dan pen. Kuasnya persegi tanpa anti-alias, cocok untuk pixel art.
 - JSON metadata sekarang memuat nama file gambar dan nama tiap frame.
