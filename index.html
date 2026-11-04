@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="author" content="Farelfhmc (Studio Fhilion)">
-<meta name="description" content="Spritesheet Studio v2.0.0 - video, GIF and images to spritesheet. Made by Farelfhmc, Studio Fhilion.">
+<meta name="description" content="Spritesheet Studio v2.5.0 - video, GIF and images to spritesheet. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <script>
 /* set the theme before the page paints (saved choice, else the system setting) */
@@ -23,7 +23,8 @@
 <header class="topbar" id="topbar">
   <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span class="bars" aria-hidden="true"></span></button>
   <span class="page-title" id="menuCurrent">Import</span>
-  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.0</span></span>
+  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.5</span></span>
+  <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
   <div class="menu" id="menu">
     <nav class="tabs" role="tablist" aria-label="Bagian aplikasi">
         <div class="nav-group">
@@ -78,8 +79,8 @@
   <!-- ===================== WHAT'S NEW NOTICE ===================== -->
   <div class="notice" id="newsNotice" role="note" hidden>
     <div class="notice-body">
-      <p class="notice-title">Baru di v2.0.0</p>
-      <p class="notice-text">Tampilan baru dengan menu hamburger. Paint Sprite kini layar penuh dengan toolbar ringkas per kategori, layer, fill dengan tolerance, ukuran brush dan eraser sendiri-sendiri, lingkaran warna, plus frame kosong dan seret-lepas frame di Editor. Ada juga Player untuk memutar animasi dari frame-framemu.</p>
+      <p class="notice-title">Baru di v2.5.0</p>
+      <p class="notice-text">Paint Sprite kini punya tool Laso (pilih area bebas, lalu geser, putar, ubah ukuran tanpa buram, pisah ke layer baru, salin, atau hapus) dan Smart Split di panel Layer yang memisahkan satu layer otomatis per bagian terpisah atau per warna. Menu hamburger geser dengan animasi, Paint Sprite punya tampilan khusus untuk komputer dan tablet, dan ada pengaturan ukuran frame di tab Editor.</p>
       <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
     </div>
     <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
@@ -290,13 +291,43 @@
       </div>
       <div class="frame-grid" id="editorFrameGrid"></div>
     </div>
+
+    <div class="card" id="frameSizeCard">
+      <h2 class="card-title">Ukuran Frame</h2>
+      <p class="hint">Ubah ukuran semua frame sekaligus. Lapisan (layer) ikut diubah. <span id="frameSizeInfo"></span></p>
+      <div class="grid-2">
+        <label class="field">Lebar (px)
+          <input type="number" id="fsW" value="128" min="1" max="2048" step="1" inputmode="numeric">
+        </label>
+        <label class="field">Tinggi (px)
+          <input type="number" id="fsH" value="128" min="1" max="2048" step="1" inputmode="numeric">
+        </label>
+        <label class="field">Cara menyesuaikan
+          <select id="fsFit">
+            <option value="contain">Muat (sisa transparan)</option>
+            <option value="cover">Isi penuh (dipotong)</option>
+            <option value="stretch">Regangkan</option>
+            <option value="center">Tengah (tanpa skala)</option>
+          </select>
+        </label>
+      </div>
+      <label class="field checkbox-field"><input type="checkbox" id="fsLock" checked> Kunci rasio lebar : tinggi</label>
+      <label class="field checkbox-field"><input type="checkbox" id="fsNewUse"> Frame kosong baru memakai ukuran ini</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="fsApplyBtn" type="button">Ubah Ukuran Semua Frame</button>
+        <button class="btn btn-secondary" id="fsUndoBtn" type="button" disabled>Urungkan</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== PAINT SPRITE ===================== -->
   <section class="panel" id="panel-paint" role="tabpanel">
     <div class="paint-stage" id="paintWrap">
       <div class="paint-inner">
-        <canvas id="paintCanvas" class="checker-bg" hidden></canvas>
+        <div class="paint-cv" id="paintCv">
+          <canvas id="paintCanvas" class="checker-bg" hidden></canvas>
+          <canvas id="paintOverlay" class="paint-overlay" aria-hidden="true"></canvas>
+        </div>
         <div class="paint-empty" id="paintEmpty">
           <p>Belum ada frame. Import dulu di tab Import, atau buat frame kosong.</p>
           <button class="btn btn-primary" id="paintEmptyAddBtn" type="button">+ Frame Kosong</button>
@@ -318,7 +349,7 @@
       <!-- row 2: changes with the category -->
       <div class="bar-row" data-cat-row="tools">
         <div class="seg" role="group" aria-label="Alat">
-          <button type="button" data-tool="brush" class="on">Brush</button><button type="button" data-tool="eraser">Eraser</button><button type="button" data-tool="fill">Fill</button><button type="button" data-tool="picker">Eyedrop</button><button type="button" data-tool="pan">Geser</button>
+          <button type="button" data-tool="brush" class="on">Brush</button><button type="button" data-tool="eraser">Eraser</button><button type="button" data-tool="fill">Fill</button><button type="button" data-tool="picker">Eyedrop</button><button type="button" data-tool="lasso">Laso</button><button type="button" data-tool="pan">Geser</button>
         </div>
       </div>
       <div class="bar-row" data-cat-row="layers" hidden>
@@ -366,12 +397,73 @@
             <div class="seg" role="group" aria-label="Ambil warna dari"><button type="button" data-fillsample="layer" class="on">Layer ini</button><button type="button" data-fillsample="all">Semua layer</button></div>
           </div>
         </div>
+        <div id="optLasso" hidden>
+        <div id="lassoMain">
+          <p class="hint">Gambar area bebas dengan jari atau mouse. Aksi berlaku untuk layer yang dipilih. Pakai Geser / Putar / Ubah ukuran untuk memindahkan isi area.</p>
+          <div class="opt-row"><span class="opt-cap">Mode laso</span>
+            <div class="seg" role="group" aria-label="Mode laso"><button type="button" data-lassomode="new" class="on">Baru</button><button type="button" data-lassomode="add">Tambah</button><button type="button" data-lassomode="sub">Kurangi</button></div>
+          </div>
+          <p class="hint sel-info">Terpilih: <b id="selCount">0</b> px</p>
+          <div class="sel-actions">
+            <button class="btn btn-primary btn-sm" id="selXfBtn" type="button">Geser / Putar / Ubah ukuran</button>
+            <button class="btn btn-secondary btn-sm" id="selCutBtn" type="button">Pisah ke layer baru</button>
+            <button class="btn btn-secondary btn-sm" id="selCopyBtn" type="button">Salin ke layer baru</button>
+            <button class="btn btn-secondary btn-sm" id="selDelBtn" type="button">Hapus isi</button>
+            <button class="btn btn-secondary btn-sm" id="selInvBtn" type="button">Balik pilihan</button>
+            <button class="btn btn-secondary btn-sm" id="selClearBtn" type="button">Batal pilih</button>
+          </div>
+        </div>
+        <div id="lassoXf" hidden>
+          <p class="hint">Seret kotak untuk menggeser, titik sudut atau sisi untuk mengubah ukuran, dan titik bulat di atas untuk memutar (Shift = per 15°). Piksel tidak dibuat buram.</p>
+          <div class="xf-fields">
+            <label class="field"><span>Lebar (px)</span><input type="number" id="xfW" min="1" max="4096" step="1" inputmode="numeric"></label>
+            <label class="field"><span>Tinggi (px)</span><input type="number" id="xfH" min="1" max="4096" step="1" inputmode="numeric"></label>
+            <label class="field"><span>Sudut (°)</span><input type="number" id="xfAngle" min="-180" max="180" step="1" inputmode="decimal"></label>
+          </div>
+          <label class="field checkbox-field"><input type="checkbox" id="xfLock" checked> Kunci rasio</label>
+          <div class="sel-actions">
+            <button class="btn btn-secondary btn-sm" id="xfRotL" type="button" aria-label="Putar 90° ke kiri" title="Putar 90° ke kiri">&#8634; 90°</button>
+            <button class="btn btn-secondary btn-sm" id="xfRotR" type="button" aria-label="Putar 90° ke kanan" title="Putar 90° ke kanan">&#8635; 90°</button>
+            <button class="btn btn-secondary btn-sm" id="xfResetBtn" type="button">Atur ulang</button>
+          </div>
+          <div class="sel-actions">
+            <button class="btn btn-primary btn-sm" id="xfApplyBtn" type="button">Terapkan</button>
+            <button class="btn btn-secondary btn-sm" id="xfCancelBtn" type="button">Batal</button>
+          </div>
+        </div>
+      </div>
       </div>
 
       <div class="paint-pop" id="paintLayers" hidden>
         <div class="layer-actions">
           <button class="btn btn-secondary btn-sm" id="layerDupBtn" type="button">Duplikat</button>
           <button class="btn btn-secondary btn-sm" id="layerMergeBtn" type="button">Gabung ke bawah</button>
+          <button class="btn btn-secondary btn-sm" id="layerSplitBtn" type="button" aria-expanded="false">Smart Split</button>
+        </div>
+        <div class="split-box" id="splitBox" hidden>
+          <p class="hint">Pisah layer yang sedang dipilih menjadi beberapa layer baru, otomatis.</p>
+          <div class="opt-row"><span class="opt-cap">Pisah berdasarkan</span>
+            <div class="seg" role="group" aria-label="Pisah berdasarkan"><button type="button" data-splitmode="parts" class="on">Bagian terpisah</button><button type="button" data-splitmode="colors">Warna</button></div>
+          </div>
+          <div id="splitParts">
+            <label class="field"><span>Jarak gabung (<span id="splitGapVal">0</span> px)</span>
+              <input type="range" id="splitGap" min="0" max="8" value="0">
+            </label>
+            <p class="hint">Bagian yang jaraknya lebih dekat dari ini dianggap satu.</p>
+          </div>
+          <div id="splitColors" hidden>
+            <label class="field"><span>Toleransi warna (<span id="splitTolVal">40</span>)</span>
+              <input type="range" id="splitTol" min="4" max="120" value="40">
+            </label>
+            <p class="hint">Makin besar, makin sedikit layer.</p>
+          </div>
+          <label class="field"><span>Abaikan bintik kurang dari (<span id="splitMinVal">2</span> px)</span>
+            <input type="range" id="splitMin" min="0" max="64" value="2">
+          </label>
+          <p class="hint">Bintik kecil dikumpulkan ke satu layer Sisa.</p>
+          <label class="field checkbox-field" id="splitSelField" hidden><input type="checkbox" id="splitSel" checked> Hanya area terpilih (laso)</label>
+          <label class="field checkbox-field"><input type="checkbox" id="splitKeep"> Simpan layer asli (disembunyikan)</label>
+          <button class="btn btn-primary btn-sm" id="splitRunBtn" type="button">Pisah Sekarang</button>
         </div>
         <div class="layer-list" id="layerList"></div>
         <label class="field"><span>Opasitas (<span id="layerOpacityVal">100</span>%)</span>
@@ -538,7 +630,7 @@
 </main>
 
 <footer class="app-footer">
-  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.0.0 &middot; MIT
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.5.0 &middot; MIT
 </footer>
 
 

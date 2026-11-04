@@ -2,6 +2,23 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.5.0 — 2026-11-04
+More features are still coming in later 2.5 updates.
+
+### Added
+- **Smart Split** (Paint Sprite → Layer → *Smart Split*). Splits the selected layer into several new layers in one tap. **Separate parts** keeps touching pixels together and has a *Join distance* (0–8 px) that also joins parts lying close to each other; **Color** groups similar colors (*Color tolerance*), the most common colors first, and names each layer after its color. *Ignore specks smaller than* gathers tiny pieces into one layer called **Rest**. Options: **Keep the original layer** (hidden), and **Selected area only** when a lasso area exists. The 16-layer limit is respected (the smallest pieces are merged into Rest). One **Undo** step brings the original layer back.
+- **Lasso tool** (Paint Sprite → Tools, shortcut L). Draw a free-hand area with mouse, touch or pen. Modes **New / Add / Subtract**; a tap in *New* mode deselects. The area is shown as a dashed outline that stays visible with any tool and follows zoom. Actions on the pixels of the selected layer inside the area: **Move / Rotate / Resize** (see below), **Move to new layer**, **Copy to new layer**, **Delete contents**, **Invert selection**, **Deselect**. Esc deselects and Delete erases the selected pixels. All actions can be undone.
+- **Move, rotate and resize inside the lasso** (Lasso → **Move / Rotate / Resize**). The pixels of the selected layer inside the area get a box with handles: drag inside it to **move**, drag a corner to **resize** (keeps the proportions), drag a side to stretch only that side, and drag the round handle on top to **rotate** (hold Shift for steps of 15°). Width, height and angle can also be typed, with a *Lock ratio* option, plus **↺ 90° / ↻ 90°** and **Reset**. Arrow keys nudge by 1 px (Shift: 10 px). **Apply** (Enter) confirms, **Cancel** (Esc) drops the change; the result is one **Undo** step and the lasso area follows the moved pixels. **Nothing is blurred:** every pixel of the result copies exactly one pixel of the original (no smoothing, no anti-aliasing, no new colors), sizes and moves are whole pixels, and the *Pixelated / Smoothed* setting does not affect it. Rotating by 90° is exact. The transform is applied by itself when you pick another tool, frame, layer action or section.
+- **Frame size** (Editor tab, new *Frame Size* section). Set a width and height (1–2048 px) and resize every frame at once, layers included. Four fit modes: **Fit** (whole picture kept, the rest transparent), **Fill** (fills the frame, edges cropped), **Stretch** and **Center** (no scaling). The *Pixelated / Smoothed* setting is respected, so pixel art stays sharp. The fields start with the size of the first frame; an optional lock keeps the width : height ratio; **Undo** brings the old sizes back. The new size is also copied to the Spritesheet tab. A checkbox makes **new empty frames** use this size.
+- **Hamburger slide animation.** The menu now slides in from the left with a dimmed backdrop, its groups fade in one after another, and the icon turns into an ×. Respects the "reduce motion" system setting.
+
+### Changed
+- On phones the six tool buttons are a little narrower so the toolbar still fits on one row.
+
+### Fixed
+- **Hamburger menu: the language switch (and sometimes Theme / Display) was cut off on phones.** The menu was sized to the full browser height, which is taller than what a phone really shows while the address bar is visible. It is now a drawer that fills exactly the space under the top bar and scrolls inside itself, so every item can be reached.
+- **Paint Sprite on computer / tablet.** On screens 768 px wide or more, the tools dock in a panel on the left (two-column tool buttons, color wheel and layers open inside the panel instead of floating over the sprite), the frame bar runs along the bottom with larger thumbnails, and the sprite is fitted in the remaining space. It re-fits when the window is resized or rotated. Phones keep the floating bars.
+
 ## 2.0.0 — 2026-10-31
 ### Changed
 - **Hamburger menu.** The top bar is now just a hamburger icon and the name of the current section. The menu lists the sections in three categories: **Source** (Import, Background), **Edit** (Editor, Paint Sprite) and **Output** (Spritesheet, Merge, Export), with the Light / Dark, Pixelated / Smoothed and ID / EN switches at the bottom. It closes by itself when you pick a section or tap outside. Nothing scrolls sideways.

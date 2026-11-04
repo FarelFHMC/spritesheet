@@ -2,6 +2,23 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.5.0 — 2026-11-04
+Fitur lain masih akan datang di update 2.5 berikutnya.
+
+### Ditambahkan
+- **Smart Split** (Paint Sprite → Layer → *Smart Split*). Memisahkan layer terpilih menjadi beberapa layer baru hanya dengan satu ketukan. **Bagian terpisah** menjaga piksel yang bersentuhan tetap satu dan punya *Jarak gabung* (0–8 px) yang juga menyatukan bagian yang letaknya berdekatan; **Warna** mengelompokkan warna yang mirip (*Toleransi warna*), dimulai dari warna terbanyak, dan menamai tiap layer sesuai warnanya. *Abaikan bintik kurang dari* mengumpulkan potongan sangat kecil ke satu layer bernama **Sisa**. Pilihan: **Simpan layer asli** (disembunyikan), dan **Hanya area terpilih** bila ada area laso. Batas 16 layer dihormati (potongan terkecil digabung ke Sisa). Satu langkah **Urungkan** mengembalikan layer asli.
+- **Tool Laso** (Paint Sprite → Alat, pintasan L). Gambar area bebas dengan mouse, sentuhan, atau pen. Mode **Baru / Tambah / Kurangi**; ketuk sekali di mode *Baru* untuk membatalkan pilihan. Area tampak sebagai garis putus-putus yang tetap terlihat di semua tool dan ikut zoom. Aksi pada piksel layer terpilih di dalam area: **Geser / Putar / Ubah ukuran** (lihat di bawah), **Pisah ke layer baru**, **Salin ke layer baru**, **Hapus isi**, **Balik pilihan**, **Batal pilih**. Esc membatalkan pilihan dan Delete menghapus piksel terpilih. Semua aksi bisa diurungkan.
+- **Geser, putar, dan ubah ukuran di dalam laso** (Laso → **Geser / Putar / Ubah ukuran**). Piksel layer terpilih di dalam area mendapat kotak dengan titik pegangan: seret di dalam kotak untuk **menggeser**, seret titik sudut untuk **mengubah ukuran** (rasio tetap), seret sisi untuk meregangkan satu sisi saja, dan seret titik bulat di atas untuk **memutar** (tahan Shift untuk per 15°). Lebar, tinggi, dan sudut juga bisa diketik, dengan pilihan *Kunci rasio*, ditambah tombol **↺ 90° / ↻ 90°** dan **Atur ulang**. Tombol panah menggeser 1 px (Shift: 10 px). **Terapkan** (Enter) mengonfirmasi, **Batal** (Esc) membuang perubahan; hasilnya satu langkah **Urungkan** dan area laso ikut ke posisi baru. **Tidak ada yang dibuat buram:** setiap piksel hasil menyalin tepat satu piksel asli (tanpa pelembutan, tanpa anti-alias, tanpa warna baru), ukuran dan geseran berupa piksel utuh, dan pengaturan *Pixelated / Smoothed* tidak memengaruhinya. Putar 90° tepat tanpa selisih. Perubahan diterapkan otomatis saat kamu memilih tool, frame, aksi layer, atau bagian lain.
+- **Ukuran frame** (tab Editor, bagian baru *Ukuran Frame*). Isi lebar dan tinggi (1–2048 px) lalu ubah ukuran semua frame sekaligus, termasuk layer-nya. Ada empat cara menyesuaikan: **Muat** (seluruh gambar terlihat, sisanya transparan), **Isi penuh** (memenuhi frame, tepi terpotong), **Regangkan**, dan **Tengah** (tanpa skala). Pengaturan *Pixelated / Smoothed* ikut dipakai, jadi pixel art tetap tajam. Isian awal mengikuti ukuran frame pertama; kunci rasio lebar : tinggi bisa dinyalakan; **Urungkan** mengembalikan ukuran lama. Ukuran baru juga disalin ke tab Spritesheet. Ada kotak centang agar **frame kosong baru** memakai ukuran ini.
+- **Animasi slide hamburger.** Menu sekarang meluncur dari kiri dengan latar gelap, isinya muncul satu per satu, dan ikonnya berubah jadi ×. Mengikuti pengaturan sistem "kurangi gerakan".
+
+### Diubah
+- Di ponsel, enam tombol tool dibuat sedikit lebih sempit agar toolbar tetap muat dalam satu baris.
+
+### Diperbaiki
+- **Menu hamburger: tombol bahasa (kadang juga Tema / Tampilan) terpotong di layar ponsel.** Tinggi menu dihitung dari tinggi penuh browser, padahal yang tampil di ponsel lebih pendek saat address bar terlihat. Sekarang menu berupa laci yang pas mengisi ruang di bawah bar atas dan bisa digulir sendiri, jadi semua isinya terjangkau.
+- **Paint Sprite di komputer / tablet.** Pada layar selebar 768 px atau lebih, alat menempel di panel kiri (tombol alat dua kolom, lingkaran warna dan layer terbuka di dalam panel, tidak melayang di atas sprite), bar frame memanjang di bawah dengan thumbnail lebih besar, dan sprite disesuaikan ke ruang yang tersisa. Ukurannya menyesuaikan lagi saat jendela diubah atau layar diputar. Ponsel tetap memakai bar melayang.
+
 ## 2.0.0 — 2026-10-31
 ### Diubah
 - **Menu hamburger.** Bar atas sekarang hanya ikon hamburger dan nama bagian yang sedang dibuka. Menunya memuat bagian dalam tiga kategori: **Bahan** (Import, Background), **Edit** (Editor, Paint Sprite), dan **Hasil** (Spritesheet, Gabung, Export), dengan tombol Terang / Gelap, Pixelated / Smoothed, dan ID / EN di bagian bawah. Menu menutup sendiri saat kamu memilih bagian atau mengetuk di luar. Tidak ada yang digeser ke samping.
