@@ -2,6 +2,21 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.6.0 — 2026-11-06
+### Ditambahkan
+- **Export animasi** (tab Export, kartu baru *Export Animasi*). Buat **GIF**, **WebP animasi**, atau video **MP4** dari frame di Editor. Pilihan: *Kecepatan* (1–60 FPS, awalnya mengikuti kecepatan Player), *Ukuran* (1×, 2×, 3×, 4×, 6×, 8×, skala bilangan bulat yang mengikuti pengaturan *Pixelated / Smoothed*), *Mode putar* (**Ulang**, **Bolak-balik**, **Sekali**), *Dari frame / Sampai frame* (kosong = pertama / terakhir), **Latar transparan** (GIF dan WebP) atau warna latar, dan *Kualitas animasi* untuk WebP. File diberi nama `nama_anim.gif` / `.webp` / `.mp4`. Frame yang ukurannya berbeda diletakkan di tengah. Tidak ada yang diunggah dan tanpa library:
+  - **GIF** dibuat di dalam aplikasi: satu palet berisi paling banyak 255 warna untuk seluruh animasi (warna aslinya bila jumlahnya sedikit, seperti pixel art), transparansi ada-atau-tidak, dan untuk GIF tanpa transparansi hanya bagian frame yang berubah yang disimpan agar file tetap kecil.
+  - **WebP animasi** menggabungkan satu gambar WebP per frame menjadi satu file, dengan transparansi penuh. Butuh browser yang bisa membuat WebP (Chrome, Edge, Firefox); kalau tidak, pilihannya dinonaktifkan.
+  - **MP4** memakai encoder H.264 bawaan browser (WebCodecs) dan menulis filenya sendiri. MP4 tidak punya transparansi, jadi latar diisi warna pilihanmu. Kalau gambar terlalu kecil untuk encoder, gambar diperbesar dengan angka bulat (kamu diberi tahu). Butuh Chrome, Edge, atau Safari terbaru; kalau tidak, pilihannya dinonaktifkan.
+  - Waktu tayang tepat: waktu tiap frame dibulatkan agar panjang total sesuai FPS (misalnya 12 FPS di GIF bergantian 80 / 90 ms).
+- **Gabung 2 spritesheet atau lebih** (tab Gabung). **+ Tambah Spritesheet** menambah slot (sampai 12); tiap slot punya pemilih file, pratinjau, **↑ ↓** untuk mengubah urutan, dan **×** untuk menghapus (minimal 2 tersisa). Mode **Horizontal**, **Vertical**, **Overlay**, dan **Append Frames** bekerja dengan jumlah sheet berapa pun. Di **Append Frames** setiap spritesheet punya *Lebar / Tinggi frame* sendiri (slot baru dimulai dengan ukuran slot di atasnya) dan menampilkan jumlah frame-nya, jadi sheet dengan ukuran frame berbeda bisa dicampur. Slot kosong diabaikan, tetapi minimal 2 sheet harus sudah dimuat.
+
+### Diubah
+- Judul tab **Gabung** sekarang *Gabungkan Spritesheet* (sebelumnya: *Gabungkan 2 Spritesheet*). Isian *Frame width A / B* dan *Frame height A / B* diganti dengan isian per spritesheet seperti di atas.
+- Progress bar di tab Export sekarang muncul di bawah tombol yang ditekan.
+- Nama file yang ditampilkan di tab Export juga memuat nama animasi.
+- Hasil gabungan yang lebih lebar atau lebih tinggi dari 16384 px dihentikan dengan pesan, bukan menghasilkan gambar rusak.
+
 ## 2.5.0 — 2026-11-04
 Fitur lain masih akan datang di update 2.5 berikutnya.
 

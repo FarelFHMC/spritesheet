@@ -2,6 +2,21 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.6.0 — 2026-11-06
+### Added
+- **Animation export** (Export tab, new *Export Animation* card). Make a **GIF**, an **animated WebP** or an **MP4** video from the frames in the Editor. Options: *Speed* (1–60 FPS, starts at the Player's speed), *Size* (1×, 2×, 3×, 4×, 6×, 8×, whole-number scaling that follows the *Pixelated / Smoothed* setting), *Play mode* (**Loop**, **Ping-pong**, **Once**), *From frame / To frame* (empty = first / last), **Transparent background** (GIF and WebP) or a background color, and *Animation quality* for WebP. The file is named `name_anim.gif` / `.webp` / `.mp4`. Frames of different sizes are centered. Nothing is uploaded and no library is used:
+  - **GIF** is encoded inside the app: one palette of up to 255 colors for the whole animation (the exact colors when there are few, as in pixel art), transparency that is all or nothing, and, for opaque GIFs, only the changed area of each frame is stored to keep the file small.
+  - **Animated WebP** joins one WebP image per frame into a single file, with full transparency. Needs a browser that can create WebP (Chrome, Edge, Firefox); otherwise the option is disabled.
+  - **MP4** uses the browser's H.264 encoder (WebCodecs) and writes the file itself. MP4 has no transparency, so the background is filled with the color you pick. If the picture is too small for the encoder it is enlarged by a whole number (you are told). Needs a recent Chrome, Edge or Safari; otherwise the option is disabled.
+  - Timing is exact: frame times are rounded so the total length matches the FPS (for example 12 FPS in a GIF alternates 80 / 90 ms).
+- **Merge 2 or more spritesheets** (Merge tab). **+ Add Spritesheet** adds a slot (up to 12); each slot has its own file picker, preview, **↑ ↓** to change the order and **×** to remove it (at least 2 stay). The modes **Horizontal**, **Vertical**, **Overlay** and **Append Frames** work with any number of sheets. In **Append Frames** every spritesheet has its own *Frame width / height* (a new slot starts with the size of the one above) and shows how many frames it holds, so sheets with different frame sizes can be mixed. Empty slots are ignored, but at least 2 sheets must be loaded.
+
+### Changed
+- The tab **Merge** now reads *Merge Spritesheets* (before: *Merge 2 Spritesheets*). The *Frame width A / B* and *Frame height A / B* fields are replaced by the per-spritesheet fields described above.
+- The progress bar in the Export tab now appears under the button that was pressed.
+- The file names shown in the Export tab also list the animation name.
+- A merge result that would be wider or taller than 16384 px is stopped with a message instead of producing a broken image.
+
 ## 2.5.0 — 2026-11-04
 More features are still coming in later 2.5 updates.
 

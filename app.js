@@ -1,8 +1,8 @@
 'use strict';
 
-/* Spritesheet Studio v2.5.0
+/* Spritesheet Studio v2.6.0
    Made by Farelfhmc - Studio Fhilion. MIT License. */
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 
 /* =========================================================================
    STATE
@@ -11,8 +11,7 @@ const state = {
   frames: [],        // [{ id, canvas, name? }]
   sheetMeta: null,    // { canvas, cols, rows, frameW, frameH, count, sheetW, sheetH, padding, margin }
   exportSheet: null,  // last built/merged spritesheet canvas, used by Export tab
-  mergeA: null,        // canvas of loaded spritesheet A
-  mergeB: null,        // canvas of loaded spritesheet B
+  mergeItems: [],      // spritesheets in the Merge tab: [{ id, canvas, name, fw, fh }] (2 or more)
   smooth: false,       // false = pixelated (nearest), true = smoothed
   lang: 'id',
   exportSource: null,  // 'frames' | 'merge': where exportSheet came from
@@ -1108,6 +1107,362 @@ function updateEstimatedFrames() {
 }
 
 /* =========================================================================
+   ANIMATION ENCODERS (no DOM, no libraries)
+   GIF: own palette + LZW encoder. WebP: muxes per-frame WebP files into one animated WebP.
+   MP4: muxes H.264 samples (from WebCodecs) into an MP4 file.
+   ========================================================================= */
+
+/* Small growable byte buffer */
+function ByteWriter(initial) {
+  this.buf = new Uint8Array(initial || 1024);
+  this.len = 0;
+}
+ByteWriter.prototype.ensure = function (n) {
+  if (this.len + n <= this.buf.length) return;
+  let cap = this.buf.length * 2;
+  while (cap < this.len + n) cap *= 2;
+  const nb = new Uint8Array(cap);
+  nb.set(this.buf.subarray(0, this.len));
+  this.buf = nb;
+};
+ByteWriter.prototype.u8 = function (v) { this.ensure(1); this.buf[this.len++] = v & 255; };
+ByteWriter.prototype.u16le = function (v) { this.u8(v); this.u8(v >> 8); };
+ByteWriter.prototype.bytes = function (arr) { this.ensure(arr.length); this.buf.set(arr, this.len); this.len += arr.length; };
+ByteWriter.prototype.ascii = function (s) { for (let i = 0; i < s.length; i++) this.u8(s.charCodeAt(i)); };
+ByteWriter.prototype.result = function () { return this.buf.slice(0, this.len); };
+
+/* ---- GIF ---------------------------------------------------------------- */
+
+/* Builds one palette (max 255 colors; index 0 is kept free as the transparent index) for all
+   frames. Few colors (pixel art): the exact colors. Many colors: median cut on a 15-bit histogram.
+   Returns { colors: [[r,g,b]...], indexOf(r,g,b) -> 0-based color index }. Only pixels with
+   alpha >= 128 count. */
+function gifBuildPalette(datas) {
+  const MAXC = 255;
+  const exact = new Map();
+  let overflow = false;
+  for (let f = 0; f < datas.length && !overflow; f++) {
+    const d = datas[f];
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;
+      const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      if (!exact.has(key)) {
+        if (exact.size >= MAXC) { overflow = true; break; }
+        exact.set(key, exact.size);
+      }
+    }
+  }
+  if (!overflow) {
+    const colors = new Array(exact.size);
+    exact.forEach((idx, key) => { colors[idx] = [(key >> 16) & 255, (key >> 8) & 255, key & 255]; });
+    return { colors, indexOf: (r, g, b) => exact.get((r << 16) | (g << 8) | b) };
+  }
+
+  // Histogram with 5 bits per channel
+  const cnt = new Float64Array(32768), sr = new Float64Array(32768), sg = new Float64Array(32768), sb = new Float64Array(32768);
+  for (let f = 0; f < datas.length; f++) {
+    const d = datas[f];
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;
+      const bin = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+      cnt[bin]++; sr[bin] += d[i]; sg[bin] += d[i + 1]; sb[bin] += d[i + 2];
+    }
+  }
+  const all = [];
+  for (let b = 0; b < 32768; b++) if (cnt[b] > 0) all.push(b);
+  const chan = (bin, c) => c === 0 ? (bin >> 10) & 31 : c === 1 ? (bin >> 5) & 31 : bin & 31;
+
+  const makeBox = (bins) => {
+    let pop = 0; const lo = [31, 31, 31], hi = [0, 0, 0];
+    for (const b of bins) {
+      pop += cnt[b];
+      for (let c = 0; c < 3; c++) { const v = chan(b, c); if (v < lo[c]) lo[c] = v; if (v > hi[c]) hi[c] = v; }
+    }
+    let ch = 0, range = hi[0] - lo[0];
+    for (let c = 1; c < 3; c++) if (hi[c] - lo[c] > range) { range = hi[c] - lo[c]; ch = c; }
+    return { bins, pop, ch, range };
+  };
+
+  const boxes = [makeBox(all)];
+  while (boxes.length < MAXC) {
+    let best = -1, bestScore = -1;
+    for (let i = 0; i < boxes.length; i++) {
+      const bx = boxes[i];
+      if (bx.bins.length < 2) continue;
+      const score = bx.pop * (bx.range + 1);
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    if (best < 0) break;
+    const bx = boxes[best];
+    const ch = bx.ch;
+    bx.bins.sort((a, b) => chan(a, ch) - chan(b, ch));
+    let acc = 0, cut = 1;
+    const half = bx.pop / 2;
+    for (let i = 0; i < bx.bins.length - 1; i++) {
+      acc += cnt[bx.bins[i]];
+      cut = i + 1;
+      if (acc >= half) break;
+    }
+    boxes[best] = makeBox(bx.bins.slice(0, cut));
+    boxes.push(makeBox(bx.bins.slice(cut)));
+  }
+
+  const colors = [];
+  const lut = new Int16Array(32768).fill(-1);
+  boxes.forEach((bx, bi) => {
+    let n = 0, r = 0, g = 0, b = 0;
+    for (const bin of bx.bins) { n += cnt[bin]; r += sr[bin]; g += sg[bin]; b += sb[bin]; lut[bin] = bi; }
+    colors.push([Math.round(r / n), Math.round(g / n), Math.round(b / n)]);
+  });
+  return { colors, indexOf: (r, g, b) => lut[((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)] };
+}
+
+/* GIF variant of LZW. indices: Uint8Array of palette indices, minCode: initial code size (2..8).
+   Returns the packed bytes (not yet split in 255-byte blocks). */
+function gifLzw(indices, minCode) {
+  const clear = 1 << minCode, eoi = clear + 1;
+  const out = new ByteWriter(Math.max(256, indices.length >> 1));
+  let cur = 0, shift = 0, size = minCode + 1, next = eoi + 1;
+  const emit = (code) => {
+    cur |= code << shift;
+    shift += size;
+    while (shift >= 8) { out.u8(cur & 255); cur >>>= 8; shift -= 8; }
+  };
+  let table = new Map();
+  emit(clear);
+  let prefix = indices[0];
+  for (let i = 1; i < indices.length; i++) {
+    const k = indices[i];
+    const key = (prefix << 8) | k;
+    const hit = table.get(key);
+    if (hit !== undefined) { prefix = hit; continue; }
+    emit(prefix);
+    if (next === 4096) {
+      emit(clear);
+      table = new Map();
+      next = eoi + 1;
+      size = minCode + 1;
+    } else {
+      if (next >= (1 << size)) size++;
+      table.set(key, next++);
+    }
+    prefix = k;
+  }
+  emit(prefix);
+  // The decoder adds one more entry after the last data code, so it may widen before reading EOI
+  if (next < 4096 && next >= (1 << size) && size < 12) size++;
+  emit(eoi);
+  if (shift > 0) out.u8(cur & 255);
+  return out.result();
+}
+
+/* frames: [{ data: Uint8ClampedArray RGBA, delay: centiseconds }], w, h.
+   opts: { transparent: bool, loop: bool, progress: optional async (done, total) => void }.
+   transparent = true: pixels with alpha < 128 are see-through, every frame replaces the last.
+   transparent = false: (the frames are fully opaque) only the changed area of each frame is stored. */
+async function encodeGif(frames, w, h, opts) {
+  const transparent = !!opts.transparent;
+  const pal = gifBuildPalette(frames.map((f) => f.data));
+  const total = pal.colors.length + 1;                 // + transparent index 0
+  let bits = 1;
+  while ((1 << bits) < total) bits++;
+  const minCode = Math.max(2, bits);
+  const out = new ByteWriter(1 << 16);
+
+  out.ascii('GIF89a');
+  out.u16le(w); out.u16le(h);
+  out.u8(0x80 | 0x70 | (bits - 1));                    // global table, 8-bit color, size
+  out.u8(0); out.u8(0);
+  out.u8(0); out.u8(0); out.u8(0);                     // index 0 (transparent, color unused)
+  for (let i = 0; i < pal.colors.length; i++) { const c = pal.colors[i]; out.u8(c[0]); out.u8(c[1]); out.u8(c[2]); }
+  for (let i = total; i < (1 << bits); i++) { out.u8(0); out.u8(0); out.u8(0); }
+
+  if (opts.loop) {
+    out.u8(0x21); out.u8(0xFF); out.u8(11); out.ascii('NETSCAPE2.0');
+    out.u8(3); out.u8(1); out.u16le(0); out.u8(0);     // loop forever
+  }
+
+  let prev = null;
+  const pixels = w * h;
+  for (let f = 0; f < frames.length; f++) {
+    const d = frames[f].data;
+    const idx = new Uint8Array(pixels);
+    for (let p = 0, i = 0; p < pixels; p++, i += 4) {
+      idx[p] = d[i + 3] < 128 ? 0 : pal.indexOf(d[i], d[i + 1], d[i + 2]) + 1;
+    }
+
+    let x = 0, y = 0, fw = w, fh = h, data = idx;
+    if (!transparent && prev) {
+      let minX = w, minY = h, maxX = -1, maxY = -1;
+      for (let yy = 0; yy < h; yy++) {
+        const row = yy * w;
+        for (let xx = 0; xx < w; xx++) {
+          if (idx[row + xx] !== prev[row + xx]) {
+            if (xx < minX) minX = xx; if (xx > maxX) maxX = xx;
+            if (yy < minY) minY = yy; if (yy > maxY) maxY = yy;
+          }
+        }
+      }
+      if (maxX < 0) {                                  // nothing changed: one transparent pixel
+        x = 0; y = 0; fw = 1; fh = 1; data = new Uint8Array(1);
+      } else {
+        x = minX; y = minY; fw = maxX - minX + 1; fh = maxY - minY + 1;
+        data = new Uint8Array(fw * fh);
+        for (let yy = 0; yy < fh; yy++) {
+          for (let xx = 0; xx < fw; xx++) {
+            const v = idx[(y + yy) * w + x + xx];
+            data[yy * fw + xx] = v === prev[(y + yy) * w + x + xx] ? 0 : v;
+          }
+        }
+      }
+    }
+    prev = idx;
+
+    out.u8(0x21); out.u8(0xF9); out.u8(4);
+    out.u8(((transparent ? 2 : 1) << 2) | 1);          // disposal (2 = clear, 1 = keep) + transparent flag
+    out.u16le(Math.max(2, frames[f].delay | 0));
+    out.u8(0); out.u8(0);
+
+    out.u8(0x2C); out.u16le(x); out.u16le(y); out.u16le(fw); out.u16le(fh); out.u8(0);
+    out.u8(minCode);
+    const lzw = gifLzw(data, minCode);
+    for (let p = 0; p < lzw.length; p += 255) {
+      const n = Math.min(255, lzw.length - p);
+      out.u8(n);
+      out.bytes(lzw.subarray(p, p + n));
+    }
+    out.u8(0);
+    if (opts.progress) await opts.progress(f + 1, frames.length);
+  }
+  out.u8(0x3B);
+  return out.result();
+}
+
+/* ---- Animated WebP ------------------------------------------------------- */
+
+/* Returns the image chunks (ALPH / VP8 / VP8L, with their headers and padding) of a still WebP file. */
+function webpImageChunks(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (o) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+  if (bytes.length < 20 || tag(0) !== 'RIFF' || tag(8) !== 'WEBP') throw new Error('webp-unsupported');
+  const parts = [];
+  let o = 12;
+  while (o + 8 <= bytes.length) {
+    const id = tag(o);
+    const size = dv.getUint32(o + 4, true);
+    const end = Math.min(bytes.length, o + 8 + size + (size & 1));
+    if (id === 'ALPH' || id === 'VP8 ' || id === 'VP8L') parts.push(bytes.subarray(o, end));
+    o = end;
+  }
+  if (!parts.length) throw new Error('webp-unsupported');
+  return parts;
+}
+
+/* stills: Uint8Array[] (one WebP file per animation frame), delays in ms, all frames w x h.
+   loop: 0 = forever, n = n times. */
+function muxAnimatedWebp(stills, w, h, delays, loop, hasAlpha) {
+  const u24 = (wr, v) => { wr.u8(v); wr.u8(v >> 8); wr.u8(v >> 16); };
+  const u32 = (wr, v) => { wr.u16le(v & 0xFFFF); wr.u16le((v >>> 16) & 0xFFFF); };
+  const body = new ByteWriter(1 << 16);
+  body.ascii('WEBP');
+  body.ascii('VP8X'); u32(body, 10);
+  body.u8(0x02 | (hasAlpha ? 0x10 : 0)); body.u8(0); body.u8(0); body.u8(0);
+  u24(body, w - 1); u24(body, h - 1);
+  body.ascii('ANIM'); u32(body, 6);
+  u32(body, 0);                                        // background color (transparent black)
+  body.u16le(loop);
+  for (let i = 0; i < stills.length; i++) {
+    const parts = webpImageChunks(stills[i]);
+    let dataLen = 0;
+    for (const p of parts) dataLen += p.length;
+    body.ascii('ANMF'); u32(body, 16 + dataLen);
+    u24(body, 0); u24(body, 0);                        // x / 2, y / 2
+    u24(body, w - 1); u24(body, h - 1);
+    u24(body, Math.max(1, delays[i] | 0));
+    body.u8(0x02);                                     // do not blend, do not dispose: each frame fills the canvas
+    for (const p of parts) body.bytes(p);
+    if ((16 + dataLen) & 1) body.u8(0);
+  }
+  const out = new ByteWriter(body.len + 8);
+  out.ascii('RIFF'); u32(out, body.len);
+  out.bytes(body.result());
+  return out.result();
+}
+
+/* ---- MP4 (H.264) --------------------------------------------------------- */
+
+/* samples: [{ data: Uint8Array (length-prefixed NAL units), key: bool }], avcC: AVCDecoderConfigurationRecord,
+   fps: integer. Constant frame rate. Returns the file (moov before mdat, so it can start playing early). */
+function muxMp4(samples, w, h, fps, avcC) {
+  const enc = (v, n) => { const a = new Uint8Array(n); for (let i = n - 1; i >= 0; i--) { a[i] = v & 255; v = Math.floor(v / 256); } return a; };
+  const cat = (arrs) => {
+    let n = 0; for (const a of arrs) n += a.length;
+    const o = new Uint8Array(n); let p = 0;
+    for (const a of arrs) { o.set(a, p); p += a.length; }
+    return o;
+  };
+  const str = (s) => Uint8Array.from(s, (c) => c.charCodeAt(0));
+  const box = (type, ...kids) => { const body = cat(kids); return cat([enc(body.length + 8, 4), str(type), body]); };
+  const full = (type, ver, flags, ...kids) => box(type, enc((ver << 24) | flags, 4), ...kids);
+  const zeros = (n) => new Uint8Array(n);
+  const matrix = cat([enc(0x10000, 4), zeros(8), enc(0x10000, 4), zeros(8), enc(0x40000000, 4)]);
+
+  const n = samples.length;
+  const mediaScale = fps * 1000;
+  const movieDur = Math.round(n * 1000 / fps);
+  const ftyp = box('ftyp', str('isom'), enc(512, 4), str('isom'), str('iso2'), str('avc1'), str('mp41'));
+
+  const build = (dataOffset) => {
+    const mvhd = full('mvhd', 0, 0, enc(0, 4), enc(0, 4), enc(1000, 4), enc(movieDur, 4),
+      enc(0x10000, 4), enc(0x100, 2), zeros(10), matrix, zeros(24), enc(2, 4));
+    const tkhd = full('tkhd', 0, 7, enc(0, 4), enc(0, 4), enc(1, 4), zeros(4), enc(movieDur, 4),
+      zeros(8), enc(0, 2), enc(0, 2), enc(0, 2), zeros(2), matrix, enc(w * 65536, 4), enc(h * 65536, 4));
+    const mdhd = full('mdhd', 0, 0, enc(0, 4), enc(0, 4), enc(mediaScale, 4), enc(n * 1000, 4), enc(0x55C4, 2), zeros(2));
+    const hdlr = full('hdlr', 0, 0, zeros(4), str('vide'), zeros(12), str('VideoHandler\0'));
+    const vmhd = full('vmhd', 0, 1, zeros(8));
+    const dinf = box('dinf', full('dref', 0, 0, enc(1, 4), full('url ', 0, 1)));
+    const avc1 = box('avc1', zeros(6), enc(1, 2), zeros(16), enc(w, 2), enc(h, 2), enc(0x480000, 4), enc(0x480000, 4),
+      zeros(4), enc(1, 2), zeros(32), enc(0x18, 2), enc(0xFFFF, 2), box('avcC', avcC));
+    const stsd = full('stsd', 0, 0, enc(1, 4), avc1);
+    const stts = full('stts', 0, 0, enc(1, 4), enc(n, 4), enc(1000, 4));
+    const keys = [];
+    samples.forEach((s, i) => { if (s.key) keys.push(i + 1); });
+    const stss = full('stss', 0, 0, enc(keys.length, 4), cat(keys.map((k) => enc(k, 4))));
+    const stsc = full('stsc', 0, 0, enc(1, 4), enc(1, 4), enc(n, 4), enc(1, 4));
+    const stsz = full('stsz', 0, 0, enc(0, 4), enc(n, 4), cat(samples.map((s) => enc(s.data.length, 4))));
+    const stco = full('stco', 0, 0, enc(1, 4), enc(dataOffset, 4));
+    const stbl = box('stbl', stsd, stts, stss, stsc, stsz, stco);
+    const minf = box('minf', vmhd, dinf, stbl);
+    const mdia = box('mdia', mdhd, hdlr, minf);
+    const trak = box('trak', tkhd, mdia);
+    return box('moov', mvhd, trak);
+  };
+
+  let dataLen = 0;
+  for (const s of samples) dataLen += s.data.length;
+  if (dataLen + 8 > 0xFFFFFFF0) throw new Error('mp4-too-big');
+  const moovSize = build(0).length;
+  const moov = build(ftyp.length + moovSize + 8);
+  return cat([ftyp, moov, enc(dataLen + 8, 4), str('mdat'), ...samples.map((s) => s.data)]);
+}
+
+/* Order of frames for an animation: loop / once play 0..n-1, ping-pong goes there and back
+   (the first and last frame are not shown twice). */
+function animSequence(n, mode) {
+  const seq = [];
+  for (let i = 0; i < n; i++) seq.push(i);
+  if (mode === 'pingpong') for (let i = n - 2; i >= 1; i--) seq.push(i);
+  return seq;
+}
+
+/* Delay of each of `count` frames at `fps`, in `unit` per second, so the total time stays exact. */
+function frameDelays(count, fps, unit) {
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(Math.round(unit * (i + 1) / fps) - Math.round(unit * i / fps));
+  return out;
+}
+
+/* =========================================================================
    EXPORT: SHEET / FRAMES (ZIP or one by one) / JSON
    ========================================================================= */
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -1137,7 +1492,8 @@ function updateExportUI() {
   $('exportBgField').hidden = fmt !== 'jpeg';
   $('exportQualityVal').textContent = $('exportQuality').value;
   $('exportNamePreview').textContent = tr('Nama file hasil:') + ' ' + base + '.' + ext + ' \u00b7 ' +
-    base + '_00.' + ext + ' \u00b7 ' + base + '_frames.zip \u00b7 ' + base + '.json';
+    base + '_00.' + ext + ' \u00b7 ' + base + '_frames.zip \u00b7 ' + base + '.json \u00b7 ' + base + '_anim.' + animExt();
+  updateAnimUI();
 }
 
 /* Rebuilds the sheet if the frames changed after it was built, so Export never ships a stale
@@ -1152,10 +1508,11 @@ function ensureFreshSheet() {
 }
 
 /* Runs fn(setProgress) with the Export buttons disabled and the progress bar shown. */
-async function withExportBusy(fn, showProgress) {
+async function withExportBusy(fn, showProgress, anchor) {
   const btns = document.querySelectorAll('#panel-export .btn');
   const wrap = $('exportProgressWrap'), fill = $('exportProgressFill'), label = $('exportProgressLabel');
   btns.forEach((b) => { b.disabled = true; });
+  (anchor || $('exportBtnCol')).after(wrap);   // progress bar sits under the button that was pressed
   wrap.hidden = showProgress === false;
   fill.style.width = '0%';
   label.textContent = '0 / 0';
@@ -1166,7 +1523,13 @@ async function withExportBusy(fn, showProgress) {
     });
   } catch (err) {
     console.error(err);
-    showToast(err && err.message === 'zip-too-big' ? 'ZIP terlalu besar. Gunakan download satu per satu.' : 'Gagal membuat file');
+    const msg = err && err.message;
+    showToast(msg === 'zip-too-big' ? 'ZIP terlalu besar. Gunakan download satu per satu.'
+      : msg === 'anim-too-big' ? 'Animasi terlalu besar. Kecilkan skala atau pilih lebih sedikit frame.'
+      : msg === 'webp-unsupported' ? 'Browser ini tidak bisa membuat WebP.'
+      : msg === 'mp4-unsupported' ? 'Browser ini belum mendukung MP4. Coba Chrome, Edge, atau Safari terbaru.'
+      : msg === 'mp4-encode' ? 'Gagal membuat MP4'
+      : 'Gagal membuat file', 3600);
   } finally {
     btns.forEach((b) => { b.disabled = false; });
     setTimeout(() => { wrap.hidden = true; fill.style.width = '0%'; }, 900);
@@ -1272,52 +1635,323 @@ function exportJsonMetadata() {
 }
 
 /* =========================================================================
-   MERGE
+   EXPORT: ANIMATION (GIF / animated WebP / MP4) from the frames
    ========================================================================= */
-function runMerge() {
-  if (!state.mergeA || !state.mergeB) { showToast('Upload kedua spritesheet dulu'); return; }
-  const mode = $('mergeMode').value;
-  let result;
-  state.sheetMeta = null; // only "append" produces a grid that JSON metadata can describe
+const ANIM_EXT = { gif: 'gif', webp: 'webp', mp4: 'mp4' };
+const ANIM_MAX_BYTES = 480 * 1024 * 1024;   // composed frames kept in memory at once
+const ANIM_MAX_SIDE = 8192;
 
-  if (mode === 'horizontal') {
+function animExt() { return ANIM_EXT[$('animFormat').value] || 'gif'; }
+
+function webpEncodeSupported() {
+  try { return document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') === 0; } catch (e) { return false; }
+}
+
+/* Shows only the options that matter for the chosen format */
+function updateAnimUI() {
+  const fmt = $('animFormat').value;
+  const transparent = fmt !== 'mp4' && $('animTransparent').checked;
+  $('animTransparentField').hidden = fmt === 'mp4';
+  $('animBgField').hidden = transparent;
+  $('animQualityField').hidden = fmt !== 'webp';
+  $('animQualityVal').textContent = $('animQuality').value;
+  document.querySelectorAll('[data-anim-hint]').forEach((p) => { p.hidden = p.dataset.animHint !== fmt; });
+}
+
+/* Frames to export: the From / To fields (empty = first / last), as 0-based indexes */
+function animFrameRange() {
+  const n = state.frames.length;
+  let a = parseInt($('animFrom').value, 10), b = parseInt($('animTo').value, 10);
+  if (!(a >= 1)) a = 1;
+  if (!(b >= 1)) b = n;
+  a = Math.min(a, n); b = Math.min(b, n);
+  if (a > b) { const t = a; a = b; b = t; }
+  return [a - 1, b - 1];
+}
+
+/* One frame drawn on the animation canvas: centered, scaled by a whole number, optional background. */
+function composeAnimFrame(src, W, H, scale, bg, even) {
+  let cw = W * scale, ch = H * scale;
+  if (even) { cw += cw & 1; ch += ch & 1; }          // H.264 needs even sizes
+  const c = document.createElement('canvas');
+  c.width = cw; c.height = ch;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch); }
+  setCrisp(ctx);
+  const dx = Math.floor((W - src.width) / 2) * scale, dy = Math.floor((H - src.height) / 2) * scale;
+  ctx.drawImage(src, dx, dy, src.width * scale, src.height * scale);
+  return c;
+}
+
+/* Finds an H.264 (Baseline, so no frame reordering) config this browser can encode. If the frame is
+   too small for the encoder, the picture is enlarged by whole numbers until it works. */
+async function pickMp4Config(W, H, fps, scale) {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') throw new Error('mp4-unsupported');
+  for (let k = 1; k <= 16; k++) {
+    const s = scale * k;
+    const w = W * s + ((W * s) & 1), h = H * s + ((H * s) & 1);
+    const px = w * h;
+    if (w > 4096 || h > 4096 || px > 9437184) break;
+    const level = px <= 921600 ? '1f' : px <= 2097152 ? '28' : '33';
+    const cfg = {
+      codec: 'avc1.4200' + level, width: w, height: h, framerate: fps,
+      bitrate: Math.min(60e6, Math.max(2e6, Math.round(px * fps * 0.35))),
+      avc: { format: 'avc' }, latencyMode: 'quality'
+    };
+    try {
+      const r = await VideoEncoder.isConfigSupported(cfg);
+      if (r && r.supported) return { scale: s, cfg };
+    } catch (e) { /* try the next size */ }
+  }
+  throw new Error('mp4-unsupported');
+}
+
+async function exportAnimation() {
+  if (state.frames.length === 0) { showToast('Tidak ada frame'); return; }
+  const fmt = $('animFormat').value;
+  const fps = Math.min(60, Math.max(1, parseInt($('animFps').value, 10) || 12));
+  let scale = parseInt($('animScale').value, 10) || 1;
+  const mode = $('animMode').value;
+  const transparent = fmt !== 'mp4' && $('animTransparent').checked;
+  const bg = transparent ? null : ($('animBg').value || '#ffffff');
+  const base = getBaseName();
+  const [from, to] = animFrameRange();
+  const src = state.frames.slice(from, to + 1);
+  const seq = animSequence(src.length, mode);
+  let W = 1, H = 1;
+  src.forEach((f) => { W = Math.max(W, f.canvas.width); H = Math.max(H, f.canvas.height); });
+
+  await withExportBusy(async (setProgress) => {
+    let mp4 = null;
+    if (fmt === 'mp4') {
+      mp4 = await pickMp4Config(W, H, fps, scale);
+      if (mp4.scale !== scale) { showToast(tr('Gambar diperbesar {n}\u00d7 agar bisa dibuat MP4', mp4.scale / scale), 3200); scale = mp4.scale; }
+    }
+    const cw = W * scale + (fmt === 'mp4' ? (W * scale) & 1 : 0), ch = H * scale + (fmt === 'mp4' ? (H * scale) & 1 : 0);
+    if (cw > ANIM_MAX_SIDE || ch > ANIM_MAX_SIDE || cw * ch * 4 * src.length > ANIM_MAX_BYTES) throw new Error('anim-too-big');
+    const total = src.length + seq.length;
+    setProgress(0, total);
+
+    // 1) draw every frame once (ping-pong reuses them)
+    const comp = [];
+    for (let i = 0; i < src.length; i++) {
+      comp.push(composeAnimFrame(src[i].canvas, W, H, scale, bg, fmt === 'mp4'));
+      setProgress(i + 1, total);
+      if (i % 4 === 3) await tick();
+    }
+    const step = (i) => setProgress(src.length + i, total);
+    let blob;
+
+    // 2) encode
+    if (fmt === 'gif') {
+      const datas = comp.map((c) => c.getContext('2d').getImageData(0, 0, cw, ch).data);
+      const delays = frameDelays(seq.length, fps, 100);
+      const frames = seq.map((u, i) => ({ data: datas[u], delay: delays[i] }));
+      const bytes = await encodeGif(frames, cw, ch, {
+        transparent, loop: mode !== 'once',
+        progress: async (done) => { step(done); if (done % 2 === 0) await tick(); }
+      });
+      blob = new Blob([bytes], { type: 'image/gif' });
+    } else if (fmt === 'webp') {
+      const q = Math.min(1, Math.max(0.1, (parseInt($('animQuality').value, 10) || 100) / 100));
+      const stills = [];
+      for (let u = 0; u < comp.length; u++) {
+        const b = await new Promise((res) => comp[u].toBlob(res, 'image/webp', q));
+        if (!b || b.type !== 'image/webp') throw new Error('webp-unsupported');
+        stills.push(new Uint8Array(await b.arrayBuffer()));
+      }
+      const delays = frameDelays(seq.length, fps, 1000);
+      const bytes = muxAnimatedWebp(seq.map((u) => stills[u]), cw, ch, delays, mode === 'once' ? 1 : 0, transparent);
+      step(seq.length);
+      blob = new Blob([bytes], { type: 'image/webp' });
+    } else {
+      const chunks = [];
+      let desc = null, encErr = null;
+      const encoder = new VideoEncoder({
+        output: (chunk, meta) => {
+          const data = new Uint8Array(chunk.byteLength);
+          chunk.copyTo(data);
+          chunks.push({ data, key: chunk.type === 'key' });
+          if (!desc && meta && meta.decoderConfig && meta.decoderConfig.description) {
+            const d = meta.decoderConfig.description;
+            desc = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer, d.byteOffset, d.byteLength).slice();
+          }
+        },
+        error: (e) => { encErr = e; }
+      });
+      encoder.configure(mp4.cfg);
+      for (let i = 0; i < seq.length && !encErr; i++) {
+        const vf = new VideoFrame(comp[seq[i]], { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+        encoder.encode(vf, { keyFrame: i % 30 === 0 });
+        vf.close();
+        while (encoder.encodeQueueSize > 6 && !encErr) await new Promise((r) => setTimeout(r, 4));
+        step(i + 1);
+      }
+      if (!encErr) { try { await encoder.flush(); } catch (e) { encErr = e; } }
+      try { encoder.close(); } catch (e) { /* already closed */ }
+      if (encErr || !desc || chunks.length !== seq.length) throw new Error('mp4-encode');
+      blob = new Blob([muxMp4(chunks, cw, ch, fps, desc)], { type: 'video/mp4' });
+    }
+    downloadBlob(blob, base + '_anim.' + ANIM_EXT[fmt]);
+    showToast('Animasi diunduh');
+  }, true, $('exportAnimBtn'));
+}
+
+/* =========================================================================
+   MERGE: 2 or more spritesheets
+   ========================================================================= */
+const MERGE_MAX = 12;
+const MAX_CANVAS_SIDE = 16384;
+
+function newMergeItem(prev) {
+  return { id: nextId(), canvas: null, name: '', fw: prev ? prev.fw : 128, fh: prev ? prev.fh : 128 };
+}
+
+function mergeFrameCountText(it) {
+  if (!it.canvas) return '';
+  const n = Math.max(1, Math.floor(it.canvas.width / (it.fw || 1))) * Math.max(1, Math.floor(it.canvas.height / (it.fh || 1)));
+  return tr('{n} frame', n);
+}
+
+function moveMergeItem(i, d) {
+  const j = i + d, a = state.mergeItems;
+  if (j < 0 || j >= a.length) return;
+  const t = a[i]; a[i] = a[j]; a[j] = t;
+  renderMergeList();
+}
+
+function removeMergeItem(i) {
+  if (state.mergeItems.length <= 2) return;
+  state.mergeItems.splice(i, 1);
+  renderMergeList();
+}
+
+/* Rebuilds the list of spritesheet cards from state.mergeItems */
+function renderMergeList() {
+  const list = $('mergeList');
+  const append = $('mergeMode').value === 'append';
+  const items = state.mergeItems;
+  list.textContent = '';
+  items.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'merge-item';
+
+    const head = document.createElement('div');
+    head.className = 'merge-head';
+    const title = document.createElement('b');
+    title.textContent = tr('Spritesheet') + ' ' + (i + 1);
+    head.appendChild(title);
+    const btn = (label, aria, fn, off) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn btn-secondary btn-sm';
+      b.textContent = label; b.setAttribute('aria-label', tr(aria)); b.title = tr(aria);
+      b.disabled = !!off;
+      b.addEventListener('click', fn);
+      head.appendChild(b);
+    };
+    btn('\u2191', 'Pindah ke atas', () => moveMergeItem(i, -1), i === 0);
+    btn('\u2193', 'Pindah ke bawah', () => moveMergeItem(i, 1), i === items.length - 1);
+    btn('\u00d7', 'Hapus spritesheet', () => removeMergeItem(i), items.length <= 2);
+    row.appendChild(head);
+
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp'; input.hidden = true;
+    input.addEventListener('change', async () => {
+      const f = input.files[0];
+      if (!f) return;
+      try { it.canvas = await imageFileToCanvas(f); it.name = f.name; }
+      catch (e) { showToast('Gagal membaca gambar'); return; }
+      renderMergeList();
+    });
+    const pick = document.createElement('button');
+    pick.type = 'button'; pick.className = 'btn btn-secondary btn-sm';
+    pick.textContent = tr(it.canvas ? 'Ganti file' : 'Pilih file');
+    pick.addEventListener('click', () => input.click());
+    const info = document.createElement('p');
+    info.className = 'merge-file';
+    info.textContent = it.canvas ? it.name + ' \u00b7 ' + it.canvas.width + '\u00d7' + it.canvas.height : tr('Belum ada file');
+    const pickRow = document.createElement('div');
+    pickRow.className = 'merge-pick';
+    pickRow.append(pick, input, info);
+    row.appendChild(pickRow);
+
+    if (it.canvas) {
+      const cv = document.createElement('canvas');
+      cv.className = 'checker-bg thumb-canvas';
+      paintPreview(cv, it.canvas);
+      row.appendChild(cv);
+    }
+
+    if (append) {
+      const grid = document.createElement('div');
+      grid.className = 'grid-2 merge-size';
+      const count = document.createElement('p');
+      count.className = 'hint';
+      count.textContent = mergeFrameCountText(it);
+      const fld = (label, key) => {
+        const l = document.createElement('label');
+        l.className = 'field';
+        l.append(document.createTextNode(tr(label)));
+        const n = document.createElement('input');
+        n.type = 'number'; n.min = '1'; n.step = '1'; n.inputMode = 'numeric'; n.value = it[key];
+        n.addEventListener('input', () => { it[key] = Math.max(1, parseInt(n.value, 10) || 1); count.textContent = mergeFrameCountText(it); });
+        l.appendChild(n);
+        grid.appendChild(l);
+      };
+      fld('Lebar frame (px)', 'fw');
+      fld('Tinggi frame (px)', 'fh');
+      row.appendChild(grid);
+      row.appendChild(count);
+    }
+    list.appendChild(row);
+  });
+  $('mergeAddBtn').disabled = items.length >= MERGE_MAX;
+}
+
+function runMerge() {
+  const items = state.mergeItems.filter((it) => it.canvas);
+  if (items.length < 2) { showToast('Upload minimal 2 spritesheet dulu'); return; }
+  const mode = $('mergeMode').value;
+  const cs = items.map((it) => it.canvas);
+  const sum = (k) => cs.reduce((a, c) => a + c[k], 0);
+  const max = (k) => cs.reduce((a, c) => Math.max(a, c[k]), 0);
+  let result;
+  let meta = null; // only "append" produces a grid that JSON metadata can describe
+
+  if (mode === 'horizontal' || mode === 'vertical') {
+    const horiz = mode === 'horizontal';
+    const rw = horiz ? sum('width') : max('width'), rh = horiz ? max('height') : sum('height');
+    if (rw > MAX_CANVAS_SIDE || rh > MAX_CANVAS_SIDE) { showToast('Hasil terlalu besar (maks. 16384 px per sisi)', 3200); return; }
     result = document.createElement('canvas');
-    result.width = state.mergeA.width + state.mergeB.width;
-    result.height = Math.max(state.mergeA.height, state.mergeB.height);
+    result.width = rw; result.height = rh;
     const ctx = result.getContext('2d');
-    ctx.drawImage(state.mergeA, 0, 0);
-    ctx.drawImage(state.mergeB, state.mergeA.width, 0);
-  } else if (mode === 'vertical') {
-    result = document.createElement('canvas');
-    result.width = Math.max(state.mergeA.width, state.mergeB.width);
-    result.height = state.mergeA.height + state.mergeB.height;
-    const ctx = result.getContext('2d');
-    ctx.drawImage(state.mergeA, 0, 0);
-    ctx.drawImage(state.mergeB, 0, state.mergeA.height);
+    let pos = 0;
+    cs.forEach((c) => {
+      if (horiz) { ctx.drawImage(c, pos, 0); pos += c.width; } else { ctx.drawImage(c, 0, pos); pos += c.height; }
+    });
   } else if (mode === 'overlay') {
     result = document.createElement('canvas');
-    result.width = Math.max(state.mergeA.width, state.mergeB.width);
-    result.height = Math.max(state.mergeA.height, state.mergeB.height);
+    result.width = max('width'); result.height = max('height');
     const ctx = result.getContext('2d');
-    ctx.drawImage(state.mergeA, 0, 0);
-    ctx.drawImage(state.mergeB, 0, 0);
+    cs.forEach((c) => ctx.drawImage(c, 0, 0));
   } else {
-    const fwA = parseInt($('mergeFrameWA').value, 10) || 1;
-    const fhA = parseInt($('mergeFrameHA').value, 10) || 1;
-    const fwB = parseInt($('mergeFrameWB').value, 10) || 1;
-    const fhB = parseInt($('mergeFrameHB').value, 10) || 1;
     const colsOut = parseInt($('mergeColumnsOut').value, 10) || 1;
     const fitMode = $('mergeFitMode').value;
-    const targetW = Math.max(fwA, fwB);
-    const targetH = Math.max(fhA, fhB);
-
-    const framesA = sliceSpritesheet(state.mergeA, fwA, fhA).map((c) => normalizeFrame(c, targetW, targetH, fitMode));
-    const framesB = sliceSpritesheet(state.mergeB, fwB, fhB).map((c) => normalizeFrame(c, targetW, targetH, fitMode));
-    const built = buildSpritesheet(framesA.concat(framesB), { frameW: targetW, frameH: targetH, columns: colsOut, padding: 0, margin: 0 });
+    const targetW = Math.max.apply(null, items.map((it) => it.fw));
+    const targetH = Math.max.apply(null, items.map((it) => it.fh));
+    let frames = [];
+    items.forEach((it) => {
+      frames = frames.concat(sliceSpritesheet(it.canvas, it.fw, it.fh).map((c) => normalizeFrame(c, targetW, targetH, fitMode)));
+    });
+    if (Math.min(colsOut, frames.length) * targetW > MAX_CANVAS_SIDE || Math.ceil(frames.length / colsOut) * targetH > MAX_CANVAS_SIDE) {
+      showToast('Hasil terlalu besar (maks. 16384 px per sisi)', 3200); return;
+    }
+    const built = buildSpritesheet(frames, { frameW: targetW, frameH: targetH, columns: colsOut, padding: 0, margin: 0 });
     result = built.canvas;
-    state.sheetMeta = built;
+    meta = built;
   }
 
+  state.sheetMeta = meta;
   state.exportSheet = result;
   state.exportSource = 'merge';
   state.sheetStale = false;
@@ -1777,22 +2411,18 @@ function initEditorTab() {
 }
 
 function initMergeTab() {
-  $('mergeFileA').addEventListener('change', async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    state.mergeA = await imageFileToCanvas(f);
-    paintPreview($('mergePreviewA'), state.mergeA);
-  });
-  $('mergeFileB').addEventListener('change', async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    state.mergeB = await imageFileToCanvas(f);
-    paintPreview($('mergePreviewB'), state.mergeB);
+  state.mergeItems = [newMergeItem(), newMergeItem()];
+  $('mergeAddBtn').addEventListener('click', () => {
+    if (state.mergeItems.length >= MERGE_MAX) { showToast('Maksimal 12 spritesheet'); return; }
+    state.mergeItems.push(newMergeItem(state.mergeItems[state.mergeItems.length - 1]));
+    renderMergeList();
   });
   $('mergeMode').addEventListener('change', (e) => {
     $('mergeAppendSettings').hidden = e.target.value !== 'append';
+    renderMergeList();
   });
   $('mergeRunBtn').addEventListener('click', runMerge);
+  renderMergeList();
 }
 
 function initExportTab() {
@@ -1804,6 +2434,23 @@ function initExportTab() {
   $('exportName').addEventListener('change', () => { $('exportName').value = getBaseName(); updateExportUI(); });
   $('exportFormat').addEventListener('change', updateExportUI);
   $('exportQuality').addEventListener('input', updateExportUI);
+
+  // Animation export
+  let fps = 12;
+  try { const s = parseInt(localStorage.getItem('ss.playerFps'), 10); if (s >= 1 && s <= 60) fps = s; } catch (e) { /* ignore */ }
+  $('animFps').value = fps;
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') {
+    $('animFormat').querySelector('option[value="mp4"]').disabled = true;
+    $('animNoMp4').hidden = false;
+  }
+  if (!webpEncodeSupported()) {
+    $('animFormat').querySelector('option[value="webp"]').disabled = true;
+    $('animNoWebp').hidden = false;
+  }
+  $('animFormat').addEventListener('change', updateExportUI);
+  $('animTransparent').addEventListener('change', updateAnimUI);
+  $('animQuality').addEventListener('input', updateAnimUI);
+  $('exportAnimBtn').addEventListener('click', exportAnimation);
   updateExportUI();
 }
 
@@ -3643,8 +4290,35 @@ const EN = {
   'Diterapkan ke semua frame (layer diratakan)': 'Applied to all frames (layers flattened)',
   'Diterapkan ke frame pertama (layer diratakan)': 'Applied to the first frame (layers flattened)',
   'Nama frame (opsional)': 'Frame name (optional)',
-  'Baru di v2.5.0': "What's new in v2.5.0",
-  'Paint Sprite kini punya tool Laso (pilih area bebas, lalu geser, putar, ubah ukuran tanpa buram, pisah ke layer baru, salin, atau hapus) dan Smart Split di panel Layer yang memisahkan satu layer otomatis per bagian terpisah atau per warna. Menu hamburger geser dengan animasi, Paint Sprite punya tampilan khusus untuk komputer dan tablet, dan ada pengaturan ukuran frame di tab Editor.': 'Paint Sprite now has a Lasso tool (select a free-hand area, then move, rotate or resize it without blur, move it to a new layer, copy or delete it) and Smart Split in the Layer panel, which splits one layer automatically by separate parts or by color. The hamburger menu slides in with an animation, Paint Sprite has a dedicated layout for computers and tablets, and there are frame size settings in the Editor tab.',
+  'Baru di v2.6.0': "What's new in v2.6.0",
+  'Frame di tab Editor sekarang bisa diekspor sebagai animasi: GIF, WebP animasi, atau video MP4, lengkap dengan FPS, skala, mode putar (ulang, bolak-balik, sekali), rentang frame, dan latar transparan. Tab Gabung kini bisa menggabungkan 2 spritesheet atau lebih (sampai 12), dengan urutan yang bisa diatur dan ukuran frame sendiri untuk tiap spritesheet di mode Append Frames.': 'Frames from the Editor tab can now be exported as an animation: GIF, animated WebP or MP4 video, with FPS, scale, play mode (loop, ping-pong, once), a frame range and a transparent background. The Merge tab can now join 2 or more spritesheets (up to 12), in an order you can change, with its own frame size for each spritesheet in Append Frames mode.',
+  'Export Animasi': 'Export Animation',
+  'Buat GIF, WebP animasi, atau video MP4 dari frame di Editor.': 'Make a GIF, an animated WebP or an MP4 video from the frames in the Editor.',
+  'Format animasi': 'Animation format', 'WebP (animasi)': 'WebP (animated)', 'MP4 (video)': 'MP4 (video)',
+  'Kecepatan (FPS)': 'Speed (FPS)', 'Ukuran (skala)': 'Size (scale)',
+  'Pertama': 'First', 'Terakhir': 'Last',
+  'Latar transparan': 'Transparent background', 'Warna latar': 'Background color',
+  'Kualitas animasi (': 'Animation quality (',
+  'GIF memakai paling banyak 255 warna, dan transparansinya hanya ada atau tidak ada (tanpa setengah transparan). Cocok untuk pixel art.': 'GIF uses at most 255 colors, and transparency is all or nothing (no half-transparent pixels). Good for pixel art.',
+  'WebP animasi mendukung transparansi penuh. Kualitas 100 memberi hasil paling tajam.': 'Animated WebP supports full transparency. Quality 100 gives the sharpest result.',
+  'MP4 tidak punya transparansi, jadi latar diisi warna pilihanmu. Pengulangan diatur oleh aplikasi pemutarnya. Gambar yang terlalu kecil diperbesar otomatis dengan angka bulat bila encoder membutuhkannya.': 'MP4 has no transparency, so the background is filled with the color you pick. Looping is up to the player app. A picture that is too small is enlarged automatically by a whole number if the encoder needs it.',
+  'Browser ini belum mendukung MP4. Coba Chrome, Edge, atau Safari terbaru.': 'This browser does not support MP4 yet. Try a recent Chrome, Edge or Safari.',
+  'Browser ini tidak bisa membuat WebP.': 'This browser cannot create WebP.',
+  'Frame yang ukurannya berbeda diletakkan di tengah. Nama file: nama_anim.gif / .webp / .mp4.': 'Frames of different sizes are centered. File name: name_anim.gif / .webp / .mp4.',
+  'Download Animasi': 'Download Animation', 'Animasi diunduh': 'Animation downloaded',
+  'Animasi terlalu besar. Kecilkan skala atau pilih lebih sedikit frame.': 'The animation is too big. Lower the scale or pick fewer frames.',
+  'Gagal membuat MP4': 'Failed to create the MP4',
+  'Gambar diperbesar {n}\u00d7 agar bisa dibuat MP4': 'Picture enlarged {n}\u00d7 so the MP4 can be made',
+  'Gabungkan Spritesheet': 'Merge Spritesheets',
+  'Gabungkan 2 spritesheet atau lebih. Urutan dari atas ke bawah menentukan urutan hasilnya.': 'Merge 2 or more spritesheets. The order from top to bottom sets the order of the result.',
+  '+ Tambah Spritesheet': '+ Add Spritesheet',
+  'Pindah ke atas': 'Move up', 'Pindah ke bawah': 'Move down', 'Hapus spritesheet': 'Remove spritesheet',
+  'Pilih file': 'Choose file', 'Ganti file': 'Change file', 'Belum ada file': 'No file yet',
+  'Lebar frame (px)': 'Frame width (px)', 'Tinggi frame (px)': 'Frame height (px)', '{n} frame': '{n} frames',
+  'Upload minimal 2 spritesheet dulu': 'Upload at least 2 spritesheets first',
+  'Maksimal 12 spritesheet': 'At most 12 spritesheets',
+  'Gagal membaca gambar': 'Could not read the image',
+  'Hasil terlalu besar (maks. 16384 px per sisi)': 'The result is too big (max 16384 px per side)',
   'Laso': 'Lasso', 'Mode laso': 'Lasso mode', 'Baru': 'New', 'Tambah': 'Add', 'Kurangi': 'Subtract',
   'Gambar area bebas dengan jari atau mouse. Aksi berlaku untuk layer yang dipilih.': 'Draw a free-hand area with your finger or mouse. Actions apply to the selected layer.',
   'Terpilih:': 'Selected:',
@@ -3745,6 +4419,7 @@ function setLang(l) {
   applyLang();
   refreshAllFrameViews();
   updateExportUI();
+  renderMergeList();
 }
 
 function setSmooth(v, notify) {

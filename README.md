@@ -2,9 +2,9 @@
 
 English | [Bahasa Indonesia](README.id.md)
 
-A small web app that turns video, GIF and images into a spritesheet. Edit frames, remove backgrounds, merge two sheets, export. It runs 100% in your browser: plain HTML, CSS and JavaScript, no build step, nothing is uploaded.
+A small web app that turns video, GIF and images into a spritesheet. Edit frames, remove backgrounds, merge two or more sheets, export as images or as an animation. It runs 100% in your browser: plain HTML, CSS and JavaScript, no build step, nothing is uploaded.
 
-Version 2.5 · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
+Version 2.6 · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
 
 Made by **Farelfhmc** · Studio Fhilion
 
@@ -24,8 +24,9 @@ Open the app (online via GitHub Pages, or open `index.html` locally). Tabs, in o
    - **View:** zoom with − / + (or Ctrl + scroll wheel), **Fit** resets it.
    A floating frame bar at the bottom lists every frame: tap one to paint on it, **+** adds an empty frame after the selected one, and the field below it sets the frame's own name (used as its file name on export). Undo / redo (Ctrl+Z / Ctrl+Y) covers strokes, fills and every layer change. Shortcuts: B Brush, E Eraser, G Fill, I Eyedrop, L Lasso, H Pan. The brush is square with no anti-aliasing, made for pixel art. Note: using **Background → Apply** on a frame flattens its layers into one.
 6. **Player** — plays your frames as an animation. **Play / Pause**, previous / next frame and a slider to scrub. *Speed* 1–60 FPS, *Play mode* (**Loop**, **Ping-pong**, **Once**), *Scale* (**Fit**, 1×–8×), *Background* (**Checker**, **Dark**, **Light**), and **From frame / To frame** to loop only part of the animation. Shortcuts: Space play / pause, ← → change frame. The ▶ button in the Paint Sprite frame bar opens it directly.
-7. **Merge** — load sheet A and B and join them horizontally, vertically, as overlay, or append their frames.
+7. **Merge** — load **2 or more** spritesheets (**+ Add Spritesheet**, up to 12; ↑ ↓ change the order, × removes one) and join them horizontally, vertically, as overlay, or append their frames. In **Append Frames** each spritesheet has its own *Frame width / height* (and shows how many frames it holds), and the result can be exported with JSON metadata.
 8. **Export** — type a **File name**, choose **PNG / JPG / WebP** (JPG and WebP have a quality slider; JPG fills transparent areas with the background color you pick), then download the spritesheet, **all frames as one ZIP** (or one by one), or the JSON metadata (frame positions and names). If you changed frames after building the sheet, Export rebuilds it for you.
+   **Animation export** (second card in the Export tab): make a **GIF**, an **animated WebP** or an **MP4** video from the frames. Set *Speed* (1–60 FPS), *Size* (1×–8×, whole-number scaling), *Play mode* (**Loop**, **Ping-pong**, **Once**), *From / To frame* (empty = first / last) and **Transparent background** (GIF and WebP) or a background color. GIF uses up to 255 colors and all-or-nothing transparency; WebP keeps full transparency (quality 100 = sharpest); MP4 has no transparency and needs a browser with WebCodecs (recent Chrome, Edge or Safari). Frames of different sizes are centered. The file is named `name_anim.gif` / `.webp` / `.mp4`. Everything is encoded inside the app: no library, nothing is uploaded.
 
 **Pixelated vs Smoothed** (top right). *Pixelated* never blends colors: best for pixel art. *Smoothed* averages when shrinking and interpolates when enlarging: better for photos and video. The setting applies when frames are extracted or the sheet is built, so rebuild after changing it.
 

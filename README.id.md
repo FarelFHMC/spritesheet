@@ -2,9 +2,9 @@
 
 [English](README.md) | Bahasa Indonesia
 
-Aplikasi web kecil untuk mengubah video, GIF, dan gambar menjadi spritesheet. Bisa edit frame, hapus background, gabung dua sheet, lalu export. Semuanya jalan 100% di browser: HTML, CSS, dan JavaScript biasa, tanpa build, tidak ada file yang diunggah ke server.
+Aplikasi web kecil untuk mengubah video, GIF, dan gambar menjadi spritesheet. Bisa edit frame, hapus background, gabung dua sheet atau lebih, lalu export sebagai gambar atau animasi. Semuanya jalan 100% di browser: HTML, CSS, dan JavaScript biasa, tanpa build, tidak ada file yang diunggah ke server.
 
-Versi 2.5 · [Changelog](CHANGELOG.id.md) · [Lisensi MIT](LICENSE)
+Versi 2.6 · [Changelog](CHANGELOG.id.md) · [Lisensi MIT](LICENSE)
 
 Dibuat oleh **Farelfhmc** · Studio Fhilion
 
@@ -24,8 +24,9 @@ Buka aplikasinya (online lewat GitHub Pages, atau buka `index.html` di perangkat
    - **Lihat:** zoom dengan − / + (atau Ctrl + scroll mouse), **Fit** mengembalikannya.
    Bar frame melayang di bagian bawah menampilkan semua frame: ketuk satu untuk menggambar di atasnya, **+** menambah frame kosong setelah frame terpilih, dan kolom di bawahnya mengatur nama frame (dipakai sebagai nama file saat export). Urungkan / ulangi (Ctrl+Z / Ctrl+Y) mencakup coretan, fill, dan semua perubahan layer. Pintasan: B Brush, E Eraser, G Fill, I Eyedrop, L Laso, H Geser. Kuasnya persegi tanpa anti-alias, cocok untuk pixel art. Catatan: memakai **Background → Terapkan** pada sebuah frame akan meratakan layernya menjadi satu.
 6. **Player** — memutar frame sebagai animasi. **Putar / Jeda**, frame sebelumnya / berikutnya, dan slider untuk menggeser posisi. *Kecepatan* 1–60 FPS, *Mode putar* (**Ulang**, **Bolak-balik**, **Sekali**), *Skala* (**Fit**, 1×–8×), *Latar* (**Checker**, **Gelap**, **Terang**), dan **Dari frame / Sampai frame** untuk mengulang sebagian animasi saja. Pintasan: Spasi putar / jeda, ← → pindah frame. Tombol ▶ di bar frame Paint Sprite membukanya langsung.
-7. **Gabung** — muat sheet A dan B, lalu gabung horizontal, vertikal, overlay, atau tambahkan frame-nya.
+7. **Gabung** — muat **2 spritesheet atau lebih** (**+ Tambah Spritesheet**, sampai 12; ↑ ↓ mengubah urutan, × menghapus satu) lalu gabung horizontal, vertikal, overlay, atau tambahkan frame-nya. Di **Append Frames** tiap spritesheet punya *Lebar / Tinggi frame* sendiri (dan menampilkan jumlah frame-nya), dan hasilnya bisa diexport bersama JSON metadata.
 8. **Export** — isi **Nama file**, pilih **PNG / JPG / WebP** (JPG dan WebP punya slider kualitas; JPG mengisi area transparan dengan warna latar pilihanmu), lalu unduh spritesheet, **semua frame jadi satu ZIP** (atau satu per satu), atau JSON metadata (posisi dan nama frame). Kalau frame berubah setelah sheet dibangun, Export membangunnya ulang otomatis.
+   **Export animasi** (kartu kedua di tab Export): buat **GIF**, **WebP animasi**, atau video **MP4** dari frame. Atur *Kecepatan* (1–60 FPS), *Ukuran* (1×–8×, skala bilangan bulat), *Mode putar* (**Ulang**, **Bolak-balik**, **Sekali**), *Dari / Sampai frame* (kosong = pertama / terakhir), dan **Latar transparan** (GIF dan WebP) atau warna latar. GIF memakai paling banyak 255 warna dan transparansi ada-atau-tidak; WebP mempertahankan transparansi penuh (kualitas 100 = paling tajam); MP4 tidak punya transparansi dan butuh browser dengan WebCodecs (Chrome, Edge, atau Safari terbaru). Frame yang ukurannya berbeda diletakkan di tengah. Nama file: `nama_anim.gif` / `.webp` / `.mp4`. Semua dibuat di dalam aplikasi: tanpa library, tidak ada yang diunggah.
 
 **Pixelated vs Smoothed** (kanan atas). *Pixelated* tidak pernah mencampur warna: paling cocok untuk pixel art. *Smoothed* merata-ratakan warna saat diperkecil dan menghaluskan saat diperbesar: lebih cocok untuk foto/video. Pengaturan ini berlaku saat frame diekstrak atau sheet dibangun, jadi bangun ulang setelah mengubahnya.
 
