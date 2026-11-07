@@ -2,6 +2,19 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.7.0 — 2026-11-07
+### Ditambahkan
+- **Font Creator** (tab baru, di bawah Edit). Gambar font pixel-mu sendiri huruf demi huruf, lalu export.
+  - **Menggambar:** pilih karakter dari grid (atau pindah dengan ‹ ›) lalu gambar atau hapus di grid piksel besar dengan mouse, sentuhan, atau pen; seret untuk membuat garis. Ada **Urungkan / Ulangi** (juga Ctrl+Z / Ctrl+Y), panah **Geser huruf** (geser 1 px), **Kosongkan**, dan **Kembalikan ke klasik**. Garis hijau menandai garis dasar, jadi huruf berekor (g, j, p, q, y) bisa turun ke bawahnya.
+  - **Font klasik mengisi yang kosong.** Huruf yang belum kamu gambar otomatis memakai font klasik 5×7 bawaan (spasi, angka, A–Z, a–z, dan tanda baca, ASCII 32–126). Piksel yang tampak pudar di editor dan tidak adanya titik hijau di grid menandakan huruf itu masih otomatis; perubahan pertama membuatnya jadi milikmu. Ketukan yang tidak mengubah apa pun tidak mengubah huruf klasik menjadi buatanmu. **Kembalikan semua ke klasik** mengulang dari awal.
+  - **Karakter lain.** *Tambah karakter lain* (é, ñ, ü ...) menambahkan karakter apa pun dari Basic Multilingual Plane; karakter tambahan yang tetap kosong tidak ikut diekspor.
+  - **Pengaturan Font:** nama font, lebar dan tinggi huruf (1–32 px), garis dasar, jarak antar huruf (0–8 px), dan *Lebar menyesuaikan tiap huruf* (proporsional). Mengubah ukuran tidak menghapus gambarmu (diletakkan di tengah, sejajar garis dasar). Font klasik memakai 5 × 9 dengan garis dasar 7.
+  - **Pratinjau:** ketik teks apa saja dan lihat tampilannya dengan fontmu (1×–8×).
+  - **Export Font:** satu **ZIP** berisi pilihanmu dari: **font TrueType (.ttf)** yang bisa diinstal, **bitmap font** untuk game engine (atlas `nama.png` + `nama.fnt` format teks BMFont, huruf putih di latar transparan), file **JSON** berisi ukuran (dan posisi di atlas) tiap huruf, serta **satu PNG per huruf**; `README.txt` singkat selalu ikut. **Download TTF saja** hanya memberi file font. TTF dibuat di dalam aplikasi, tanpa library dan tidak ada yang diunggah: piksel digabung menjadi satu outline yang bersih (tanpa celah antar piksel bertetangga), dengan kotak sebagai simbol huruf yang tidak ada. Pakai di ukuran sama dengan tinggi huruf (mis. 9 px) atau kelipatannya agar tepinya tajam.
+
+### Diubah
+- Bar atas dan footer menampilkan v2.7.
+
 ## 2.6.0 — 2026-11-06
 ### Ditambahkan
 - **Export animasi** (tab Export, kartu baru *Export Animasi*). Buat **GIF**, **WebP animasi**, atau video **MP4** dari frame di Editor. Pilihan: *Kecepatan* (1–60 FPS, awalnya mengikuti kecepatan Player), *Ukuran* (1×, 2×, 3×, 4×, 6×, 8×, skala bilangan bulat yang mengikuti pengaturan *Pixelated / Smoothed*), *Mode putar* (**Ulang**, **Bolak-balik**, **Sekali**), *Dari frame / Sampai frame* (kosong = pertama / terakhir), **Latar transparan** (GIF dan WebP) atau warna latar, dan *Kualitas animasi* untuk WebP. File diberi nama `nama_anim.gif` / `.webp` / `.mp4`. Frame yang ukurannya berbeda diletakkan di tengah. Tidak ada yang diunggah dan tanpa library:

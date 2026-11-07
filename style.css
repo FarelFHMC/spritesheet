@@ -1,4 +1,4 @@
-/* Spritesheet Studio v2.5.0 — plain: system font, cool dark grey, one green accent, thin lines. */
+/* Spritesheet Studio v2.7.0 — plain: system font, cool dark grey, one green accent, thin lines. */
 :root, :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #14171a; --side: #101316; --panel: #1a1e22; --soft: #232830; --line: #2d333b;
@@ -313,3 +313,28 @@ body.paint-mode .app-main { padding: 0; max-width: none; }
 .merge-item .thumb-canvas { margin-top: 8px; }
 .merge-size { margin: 10px 0 0; }
 #mergeAddBtn { width: 100%; }
+
+/* ---- Font Creator (v2.7) ---- */
+.fc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.fc-cur { flex: 0 0 auto; min-width: 2.2ch; text-align: center; font: 600 24px/1 var(--mono); padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+.fc-info { flex: 1; min-width: 0; font-size: 13px; color: var(--dim); }
+.fc-stage { display: flex; justify-content: center; padding: 10px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+.fc-stage canvas { display: block; max-width: 100%; touch-action: none; cursor: crosshair; image-rendering: pixelated; user-select: none; -webkit-user-select: none; }
+.fc-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.fc-tools .opt-cap { margin-right: 2px; }
+.fc-tools .btn-ic { width: 40px; font-size: 18px; line-height: 1; }
+.fc-head .btn-ic { font-size: 22px; line-height: 1; }
+.fc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 6px; margin-bottom: 12px; max-height: 340px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.fc-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 60px; padding: 5px 4px 3px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); cursor: pointer; touch-action: manipulation; }
+.fc-cell:hover { background: var(--soft); }
+.fc-cell.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.fc-cell canvas { width: 100%; height: 34px; object-fit: contain; image-rendering: pixelated; }
+.fc-cell .fc-lab { font: 11px/1 var(--mono); color: var(--dim); }
+.fc-cell.custom::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.fc-add { display: flex; gap: 8px; }
+.fc-add input { flex: 1; min-width: 0; }
+.fc-text { width: 100%; margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--text); font: 14px/1.4 var(--font); resize: vertical; }
+.fc-text:focus { outline: none; border-color: var(--accent); }
+.fc-preview-wrap { margin-top: 12px; max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; overscroll-behavior: contain; }
+.fc-preview-wrap canvas { display: block; image-rendering: pixelated; }
+body.smooth .fc-stage canvas, body.smooth .fc-cell canvas, body.smooth .fc-preview-wrap canvas { image-rendering: pixelated; }

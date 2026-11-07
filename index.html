@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="author" content="Farelfhmc (Studio Fhilion)">
-<meta name="description" content="Spritesheet Studio v2.6.0 - video, GIF and images to spritesheet. Made by Farelfhmc, Studio Fhilion.">
+<meta name="description" content="Spritesheet Studio v2.7.0 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <script>
 /* set the theme before the page paints (saved choice, else the system setting) */
@@ -23,7 +23,7 @@
 <header class="topbar" id="topbar">
   <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span class="bars" aria-hidden="true"></span></button>
   <span class="page-title" id="menuCurrent">Import</span>
-  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.6</span></span>
+  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.7</span></span>
   <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
   <div class="menu" id="menu">
     <nav class="tabs" role="tablist" aria-label="Bagian aplikasi">
@@ -40,6 +40,7 @@
             <button class="tab-btn" data-tab="editor" role="tab" aria-selected="false">Editor</button>
             <button class="tab-btn" data-tab="paint" role="tab" aria-selected="false">Paint Sprite</button>
             <button class="tab-btn" data-tab="player" role="tab" aria-selected="false">Player</button>
+            <button class="tab-btn" data-tab="font" role="tab" aria-selected="false">Font Creator</button>
           </div>
         </div>
         <div class="nav-group">
@@ -79,8 +80,8 @@
   <!-- ===================== WHAT'S NEW NOTICE ===================== -->
   <div class="notice" id="newsNotice" role="note" hidden>
     <div class="notice-body">
-      <p class="notice-title">Baru di v2.6.0</p>
-      <p class="notice-text">Frame di tab Editor sekarang bisa diekspor sebagai animasi: GIF, WebP animasi, atau video MP4, lengkap dengan FPS, skala, mode putar (ulang, bolak-balik, sekali), rentang frame, dan latar transparan. Tab Gabung kini bisa menggabungkan 2 spritesheet atau lebih (sampai 12), dengan urutan yang bisa diatur dan ukuran frame sendiri untuk tiap spritesheet di mode Append Frames.</p>
+      <p class="notice-title">Baru di v2.7.0</p>
+      <p class="notice-text">Tab baru Font Creator: gambar font pixel-mu sendiri huruf demi huruf, lihat hasilnya langsung di pratinjau, lalu ekspor satu ZIP berisi file font TTF yang bisa diinstal, bitmap font (PNG + .fnt) untuk game engine, dan data JSON. Huruf yang belum kamu gambar otomatis memakai font klasik 5×7, jadi font selalu lengkap.</p>
       <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
     </div>
     <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
@@ -527,6 +528,101 @@
     </div>
   </section>
 
+  <!-- ===================== FONT CREATOR ===================== -->
+  <section class="panel" id="panel-font" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Font Creator</h2>
+      <p class="hint">Gambar font pixel-mu sendiri, huruf demi huruf. Huruf yang belum kamu gambar otomatis memakai font klasik 5×7, jadi font selalu lengkap.</p>
+      <div class="fc-head">
+        <button class="btn btn-ic" id="fcPrev" type="button" aria-label="Karakter sebelumnya">&lsaquo;</button>
+        <b class="fc-cur" id="fcCur">A</b>
+        <span class="fc-info" id="fcCurInfo"></span>
+        <button class="btn btn-ic" id="fcNext" type="button" aria-label="Karakter berikutnya">&rsaquo;</button>
+      </div>
+      <div class="fc-stage" id="fcStage"><canvas id="fcCanvas" aria-label="Kanvas gambar huruf"></canvas></div>
+      <div class="fc-tools">
+        <div class="seg" role="group" aria-label="Alat gambar"><button type="button" data-fctool="draw" class="on">Gambar</button><button type="button" data-fctool="erase">Hapus</button></div>
+        <button class="btn btn-sm btn-ic" id="fcUndo" type="button" aria-label="Urungkan" disabled>&#8630;</button>
+        <button class="btn btn-sm btn-ic" id="fcRedo" type="button" aria-label="Ulangi" disabled>&#8631;</button>
+      </div>
+      <div class="fc-tools">
+        <span class="opt-cap">Geser huruf</span>
+        <button class="btn btn-sm btn-ic" type="button" data-fcnudge="-1,0" aria-label="Geser ke kiri">&larr;</button>
+        <button class="btn btn-sm btn-ic" type="button" data-fcnudge="0,-1" aria-label="Geser ke atas">&uarr;</button>
+        <button class="btn btn-sm btn-ic" type="button" data-fcnudge="0,1" aria-label="Geser ke bawah">&darr;</button>
+        <button class="btn btn-sm btn-ic" type="button" data-fcnudge="1,0" aria-label="Geser ke kanan">&rarr;</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-sm" id="fcClear" type="button">Kosongkan</button>
+        <button class="btn btn-secondary btn-sm" id="fcReset" type="button">Kembalikan ke klasik</button>
+      </div>
+      <p class="hint">Garis hijau = garis dasar (baseline). Gambar pudar = font klasik otomatis; begitu kamu menggambar, huruf itu jadi milikmu.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Pilih Karakter</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+      <p class="hint">Titik hijau = sudah kamu gambar. Tanpa titik = font klasik otomatis.</p>
+      <label class="field">Tambah karakter lain (mis. é ñ ü)
+        <span class="fc-add"><input type="text" id="fcAddInput" maxlength="20" spellcheck="false" autocomplete="off" placeholder="é ñ ü"><button class="btn btn-secondary" id="fcAddBtn" type="button">+ Tambah</button></span>
+      </label>
+      <p class="hint" id="fcMiss" hidden>Karakter tambahan yang masih kosong tidak ikut diekspor.</p>
+      <button class="btn btn-secondary btn-sm" id="fcResetAll" type="button">Kembalikan semua ke klasik</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Pratinjau</h2>
+      <textarea id="fcPreviewText" class="fc-text" rows="3" maxlength="300" spellcheck="false">The quick brown fox jumps over the lazy dog 0123456789</textarea>
+      <label class="field">Skala pratinjau
+        <select id="fcPreviewScale">
+          <option value="1">1&times;</option>
+          <option value="2">2&times;</option>
+          <option value="3" selected>3&times;</option>
+          <option value="4">4&times;</option>
+          <option value="6">6&times;</option>
+          <option value="8">8&times;</option>
+        </select>
+      </label>
+      <div class="fc-preview-wrap"><canvas id="fcPreview" aria-label="Pratinjau teks"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Pengaturan Font</h2>
+      <label class="field">Nama font
+        <input type="text" id="fcName" value="MyPixelFont" maxlength="40" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="grid-2">
+        <label class="field">Lebar huruf (px)
+          <input type="number" id="fcW" value="5" min="1" max="32" step="1" inputmode="numeric">
+        </label>
+        <label class="field">Tinggi huruf (px)
+          <input type="number" id="fcH" value="9" min="1" max="32" step="1" inputmode="numeric">
+        </label>
+        <label class="field">Garis dasar (baris di atasnya)
+          <input type="number" id="fcBase" value="7" min="1" max="9" step="1" inputmode="numeric">
+        </label>
+        <label class="field">Jarak antar huruf (px)
+          <input type="number" id="fcSpacing" value="1" min="0" max="8" step="1" inputmode="numeric">
+        </label>
+      </div>
+      <label class="field checkbox-field"><input type="checkbox" id="fcProp"> Lebar menyesuaikan tiap huruf (proporsional)</label>
+      <p class="hint">Garis dasar menentukan berapa baris yang berada di atas garis (badan huruf) dan di bawahnya (ekor huruf seperti g, j, p, q, y). Mengubah ukuran tidak menghapus gambarmu. Ukuran standar font klasik: 5 × 9 dengan garis dasar 7.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Export Font</h2>
+      <label class="field checkbox-field"><input type="checkbox" id="fcOptTtf" checked> Font TrueType (.ttf), bisa diinstal</label>
+      <label class="field checkbox-field"><input type="checkbox" id="fcOptAtlas" checked> Bitmap font untuk game (PNG + .fnt)</label>
+      <label class="field checkbox-field"><input type="checkbox" id="fcOptJson" checked> Data JSON (ukuran tiap huruf)</label>
+      <label class="field checkbox-field"><input type="checkbox" id="fcOptGlyphs"> Satu PNG per huruf</label>
+      <div class="btn-col">
+        <button class="btn btn-primary" id="fcZipBtn" type="button">Download Font (ZIP)</button>
+        <button class="btn btn-secondary" id="fcTtfBtn" type="button">Download TTF saja</button>
+      </div>
+      <p class="hint" style="margin-top:12px">Pakai font TTF di ukuran yang sama dengan tinggi hurufmu (atau kelipatannya) supaya tepinya tetap tajam. Semua dibuat di dalam aplikasi, tidak ada yang diunggah.</p>
+    </div>
+  </section>
+
   <!-- ===================== MERGE ===================== -->
   <section class="panel" id="panel-merge" role="tabpanel">
     <div class="card">
@@ -664,7 +760,7 @@
 </main>
 
 <footer class="app-footer">
-  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.6.0 &middot; MIT
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.7.0 &middot; MIT
 </footer>
 
 

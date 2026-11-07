@@ -2,6 +2,19 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.7.0 — 2026-11-07
+### Added
+- **Font Creator** (new tab, under Edit). Draw your own pixel font glyph by glyph and export it.
+  - **Draw:** pick a character from the grid (or step with ‹ ›) and draw or erase on a large pixel grid with mouse, touch or pen; drag to draw lines. **Undo / Redo** (also Ctrl+Z / Ctrl+Y), **Nudge** arrows (move the glyph by 1 px), **Clear** and **Restore classic**. A green line marks the baseline, so letters with tails (g, j, p, q, y) can go below it.
+  - **Classic font fills the gaps.** Any glyph you have not drawn automatically uses a built-in classic 5×7 font (space, digits, A–Z, a–z and punctuation, ASCII 32–126). Faded pixels in the editor and a missing green dot in the grid show that a glyph is still the automatic one; the first real change makes it yours. A tap that changes nothing does not turn a classic glyph into a custom one. **Restore all to classic** starts over.
+  - **More characters.** *Add other characters* (é, ñ, ü ...) adds any character of the Basic Multilingual Plane; added characters that stay empty are not exported.
+  - **Font Settings:** font name, glyph width and height (1–32 px), baseline, letter spacing (0–8 px) and *Width follows each glyph* (proportional). Changing the size keeps your drawings (centered sideways, aligned to the baseline). The classic font uses 5 × 9 with baseline 7.
+  - **Preview:** type any text and see it drawn with your font (1×–8×).
+  - **Export Font:** one **ZIP** with any of: a **TrueType font (.ttf)** you can install, a **bitmap font** for game engines (`name.png` atlas + `name.fnt` in BMFont text format, glyphs white on transparent), a **JSON** file with the size (and atlas position) of every glyph, and **one PNG per glyph**; a short `README.txt` is always included. **Download TTF only** gives just the font file. The TTF is written inside the app, no library and nothing is uploaded: pixels are merged into one clean outline (no seams between neighbouring pixels), with a box as the missing-glyph symbol. Use it at the glyph height (e.g. 9 px) or a multiple for sharp edges.
+
+### Changed
+- The top bar and footer show v2.7.
+
 ## 2.6.0 — 2026-11-06
 ### Added
 - **Animation export** (Export tab, new *Export Animation* card). Make a **GIF**, an **animated WebP** or an **MP4** video from the frames in the Editor. Options: *Speed* (1–60 FPS, starts at the Player's speed), *Size* (1×, 2×, 3×, 4×, 6×, 8×, whole-number scaling that follows the *Pixelated / Smoothed* setting), *Play mode* (**Loop**, **Ping-pong**, **Once**), *From frame / To frame* (empty = first / last), **Transparent background** (GIF and WebP) or a background color, and *Animation quality* for WebP. The file is named `name_anim.gif` / `.webp` / `.mp4`. Frames of different sizes are centered. Nothing is uploaded and no library is used:
