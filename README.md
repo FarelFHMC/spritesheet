@@ -4,7 +4,7 @@ English | [Bahasa Indonesia](README.id.md)
 
 A small web app that turns video, GIF and images into a spritesheet. Edit frames, remove backgrounds, merge two or more sheets, export as images or as an animation, or draw your own pixel font and export it as a TTF. It runs 100% in your browser: plain HTML, CSS and JavaScript, no build step, nothing is uploaded.
 
-Version 2.7 · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
+Version 2.7.5 · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
 
 Made by **Farelfhmc** · Studio Fhilion
 
@@ -33,12 +33,28 @@ Open the app (online via GitHub Pages, or open `index.html` locally). Tabs, in o
 
 **Tips.** Use a small frame size (e.g. 64–128 px) for video. Lower FPS gives fewer, cleaner frames. Everything stays in memory; refreshing the page clears your frames and your font.
 
+## Project structure
+```
+spritesheet-studio/
+├── index.html        page and all text (Indonesian by default)
+├── style.css         styles (Light / Dark)
+├── js/
+│   ├── core.js       state, helpers, GIF decoder, video frames, background removal, spritesheet builder
+│   ├── tabs.js       frame lists, Import, encoders (GIF / WebP / MP4), Export, Merge, Frame size, event wiring
+│   ├── paint.js      Paint Sprite: layers, lasso, Smart Split, color wheel
+│   └── extras.js     Player, what's-new notice, language (ID / EN), Font Creator, init
+├── README.md / README.id.md
+├── CHANGELOG.md / CHANGELOG.id.md
+└── LICENSE
+```
+The four scripts are plain (non-module) files that share one scope, so `index.html` must load them in this order: `core.js`, `tabs.js`, `paint.js`, `extras.js`. There is still no build step.
+
 ## Run locally
 Open `index.html` in a browser. No install needed.
 
 ## Deploy to GitHub Pages
 1. Create a GitHub account, then **+ → New repository**. Name it (e.g. `spritesheet-studio`), set **Public**, click **Create repository**.
-2. **Add file → Upload files**. Upload the *contents* of the project folder (`index.html`, `style.css`, `app.js`, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`) — extract the ZIP first. Click **Commit changes**.
+2. **Add file → Upload files**. Upload the *contents* of the project folder (`index.html`, `style.css`, the `js` folder with its 4 files, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`) — extract the ZIP first. Click **Commit changes**.
 3. **Settings → Pages**. Under *Build and deployment*, Source: **Deploy from a branch**, Branch: **main**, folder **/ (root)**, **Save**.
 4. Wait 1–2 minutes. Your site: `https://<username>.github.io/<repo-name>/`.
 

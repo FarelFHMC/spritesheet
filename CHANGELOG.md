@@ -2,6 +2,19 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.7.5 — 2026-11-09
+No new features: this update only reorganizes the code. The app looks and works exactly as in 2.7.0.
+
+### Changed
+- **The JavaScript is split into 4 files** (before: one `app.js` of about 5,500 lines), in a new `js/` folder. The code is the same, only moved, and `index.html` loads the files in this order:
+  - `js/core.js` — state, helpers, GIF decoder, video frames, background removal, spritesheet builder.
+  - `js/tabs.js` — frame lists, Import, animation encoders, Export, Merge, Frame size and the event wiring.
+  - `js/paint.js` — Paint Sprite (layers, lasso, Smart Split, color wheel).
+  - `js/extras.js` — Player, the "What's new" notice, language (ID / EN), Font Creator and the start-up code.
+- The files are plain scripts that share one scope (no build step, still works by opening `index.html`), so the **load order matters**.
+- The "What's new" notice has its own version number, so it does **not** show again for people who already closed the 2.7.0 notice.
+- The README and the Changelog (English and Indonesian) are updated, with a new *Project structure* section.
+
 ## 2.7.0 — 2026-11-07
 ### Added
 - **Font Creator** (new tab, under Edit). Draw your own pixel font glyph by glyph and export it.

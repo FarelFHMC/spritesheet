@@ -2,6 +2,19 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.7.5 — 2026-11-09
+Tidak ada fitur baru: update ini hanya merapikan kode. Tampilan dan cara kerja aplikasi sama persis seperti 2.7.0.
+
+### Diubah
+- **JavaScript dipecah menjadi 4 file** (sebelumnya satu `app.js` sekitar 5.500 baris), di folder baru `js/`. Isi kodenya sama, hanya dipindah, dan `index.html` memuat file dengan urutan berikut:
+  - `js/core.js` — state, fungsi bantu, decoder GIF, frame video, hapus background, pembuat spritesheet.
+  - `js/tabs.js` — daftar frame, Import, encoder animasi, Export, Gabung, Ukuran frame, dan penghubung event.
+  - `js/paint.js` — Paint Sprite (layer, laso, Smart Split, color wheel).
+  - `js/extras.js` — Player, pemberitahuan "Baru di ...", bahasa (ID / EN), Font Creator, dan kode awal (init).
+- File-file ini skrip biasa yang berbagi satu scope (tanpa build, tetap bisa dibuka lewat `index.html`), jadi **urutan muat penting**.
+- Pemberitahuan "Baru di ..." punya nomor versinya sendiri, jadi **tidak muncul lagi** untuk yang sudah menutup pemberitahuan 2.7.0.
+- README dan Changelog (Inggris dan Indonesia) diperbarui, dengan bagian baru *Struktur proyek*.
+
 ## 2.7.0 — 2026-11-07
 ### Ditambahkan
 - **Font Creator** (tab baru, di bawah Edit). Gambar font pixel-mu sendiri huruf demi huruf, lalu export.

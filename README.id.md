@@ -4,7 +4,7 @@
 
 Aplikasi web kecil untuk mengubah video, GIF, dan gambar menjadi spritesheet. Bisa edit frame, hapus background, gabung dua sheet atau lebih, lalu export sebagai gambar atau animasi, atau membuat font pixel sendiri dan mengekspornya sebagai TTF. Semuanya jalan 100% di browser: HTML, CSS, dan JavaScript biasa, tanpa build, tidak ada file yang diunggah ke server.
 
-Versi 2.7 · [Changelog](CHANGELOG.id.md) · [Lisensi MIT](LICENSE)
+Versi 2.7.5 · [Changelog](CHANGELOG.id.md) · [Lisensi MIT](LICENSE)
 
 Dibuat oleh **Farelfhmc** · Studio Fhilion
 
@@ -33,12 +33,28 @@ Buka aplikasinya (online lewat GitHub Pages, atau buka `index.html` di perangkat
 
 **Tips.** Untuk video pakai ukuran frame kecil (mis. 64–128 px). FPS lebih rendah = frame lebih sedikit dan rapi. Semua data hanya di memori; refresh halaman menghapus frame dan font-mu.
 
+## Struktur proyek
+```
+spritesheet-studio/
+├── index.html        halaman dan semua teks (bawaan bahasa Indonesia)
+├── style.css         gaya tampilan (Terang / Gelap)
+├── js/
+│   ├── core.js       state, fungsi bantu, decoder GIF, frame video, hapus background, pembuat spritesheet
+│   ├── tabs.js       daftar frame, Import, encoder (GIF / WebP / MP4), Export, Gabung, Ukuran frame, event
+│   ├── paint.js      Paint Sprite: layer, laso, Smart Split, color wheel
+│   └── extras.js     Player, pemberitahuan baru, bahasa (ID / EN), Font Creator, init
+├── README.md / README.id.md
+├── CHANGELOG.md / CHANGELOG.id.md
+└── LICENSE
+```
+Keempat skrip adalah file biasa (bukan module) yang berbagi satu scope, jadi `index.html` harus memuatnya berurutan: `core.js`, `tabs.js`, `paint.js`, `extras.js`. Tetap tanpa build.
+
 ## Jalankan lokal
 Buka `index.html` di browser. Tidak perlu instal apa pun.
 
 ## Deploy ke GitHub Pages (untuk pemula)
 1. Buat akun di github.com, lalu tekan **+ → New repository**. Beri nama (mis. `spritesheet-studio`), pilih **Public**, klik **Create repository**.
-2. Klik **uploading an existing file** (atau **Add file → Upload files**). Unggah *isi* folder proyek (`index.html`, `style.css`, `app.js`, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`). Ekstrak ZIP dulu, jangan unggah ZIP-nya. Klik **Commit changes**.
+2. Klik **uploading an existing file** (atau **Add file → Upload files**). Unggah *isi* folder proyek (`index.html`, `style.css`, folder `js` beserta 4 file di dalamnya, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`). Ekstrak ZIP dulu, jangan unggah ZIP-nya. Klik **Commit changes**.
 3. Buka **Settings → Pages**. Di *Build and deployment*, Source: **Deploy from a branch**, Branch: **main**, folder **/ (root)**, lalu **Save**.
 4. Tunggu 1–2 menit. Situsmu: `https://<username>.github.io/<nama-repo>/`.
 
