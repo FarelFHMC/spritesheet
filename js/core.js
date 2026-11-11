@@ -1,12 +1,12 @@
 'use strict';
 
-/* Spritesheet Studio v2.7.5 - core: state, helpers, GIF decoder, video frames, background removal, spritesheet builder
+/* Spritesheet Studio v2.7.8 - core: state, helpers, GIF decoder, video frames, background removal, spritesheet builder
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 1 of 4. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
+   Part 1 of 5. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
-const APP_VERSION = '2.7.5';
+const APP_VERSION = '2.7.8';
 /* version of the "What's new" notice (the text in index.html); only change it when the notice text changes */
-const NOTICE_VERSION = '2.7.0';
+const NOTICE_VERSION = '2.7.8';
 
 /* =========================================================================
    STATE
