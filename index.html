@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="author" content="Farelfhmc (Studio Fhilion)">
-<meta name="description" content="Spritesheet Studio v2.7.5 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
+<meta name="description" content="Spritesheet Studio v2.7.8 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <script>
 /* set the theme before the page paints (saved choice, else the system setting) */
@@ -23,7 +23,7 @@
 <header class="topbar" id="topbar">
   <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span class="bars" aria-hidden="true"></span></button>
   <span class="page-title" id="menuCurrent">Import</span>
-  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.7</span></span>
+  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.7.8</span></span>
   <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
   <div class="menu" id="menu">
     <nav class="tabs" role="tablist" aria-label="Bagian aplikasi">
@@ -49,6 +49,12 @@
             <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Spritesheet</button>
             <button class="tab-btn" data-tab="merge" role="tab" aria-selected="false">Gabung</button>
             <button class="tab-btn" data-tab="export" role="tab" aria-selected="false">Export</button>
+          </div>
+        </div>
+        <div class="nav-group">
+          <span class="group-label">Berkas</span>
+          <div class="group-items">
+            <button class="tab-btn" data-tab="files" role="tab" aria-selected="false">Simpan &amp; Buka</button>
           </div>
         </div>
       </nav>
@@ -80,8 +86,8 @@
   <!-- ===================== WHAT'S NEW NOTICE ===================== -->
   <div class="notice" id="newsNotice" role="note" hidden>
     <div class="notice-body">
-      <p class="notice-title">Baru di v2.7.0</p>
-      <p class="notice-text">Tab baru Font Creator: gambar font pixel-mu sendiri huruf demi huruf, lihat hasilnya langsung di pratinjau, lalu ekspor satu ZIP berisi file font TTF yang bisa diinstal, bitmap font (PNG + .fnt) untuk game engine, dan data JSON. Huruf yang belum kamu gambar otomatis memakai font klasik 5×7, jadi font selalu lengkap.</p>
+      <p class="notice-title">Baru di v2.7.8</p>
+      <p class="notice-text">Simpan dan buka pekerjaanmu: animasi, spritesheet, dan font tersimpan di browser dalam folder. Ada Mode Pemulihan yang menyimpan otomatis, jadi pekerjaan yang belum sempat disimpan bisa dikembalikan. Batas penyimpanan 1 GB; bisa dinaikkan dengan izinmu.</p>
       <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
     </div>
     <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
@@ -757,10 +763,71 @@
     </div>
   </section>
 
+  <!-- ===================== SAVE / LOAD ===================== -->
+  <section class="panel" id="panel-files" role="tabpanel">
+    <div class="card" id="filesError" hidden>
+      <p class="hint">Penyimpanan browser tidak tersedia (mode privat atau diblokir). Fitur simpan dan pulihkan dimatikan.</p>
+      <button class="btn btn-secondary" id="filesRetryBtn" type="button">Coba lagi</button>
+    </div>
+    <div id="filesMain">
+      <div class="card" id="filesRecoverCard" hidden>
+        <h2 class="card-title">Mode Pemulihan</h2>
+        <p class="hint">Pulihkan sesi terakhir yang disimpan otomatis. Simpan otomatis dijeda sampai kamu memilih.</p>
+        <p class="hint"><b id="filesRecoverText"></b></p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="filesRecoverBtn" type="button">Pulihkan Sesi</button>
+          <button class="btn btn-secondary" id="filesRecoverDropBtn" type="button">Buang</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Simpan</h2>
+        <p class="hint">Simpan pekerjaanmu di browser ini (IndexedDB). Tidak ada yang diunggah ke mana pun.</p>
+        <div class="grid-2">
+          <label class="field">Nama
+            <input type="text" id="saveName" maxlength="60" spellcheck="false" autocomplete="off">
+          </label>
+          <label class="field">Folder
+            <select id="saveFolder"></select>
+          </label>
+        </div>
+        <div class="btn-col">
+          <button class="btn btn-primary" id="saveAnimBtn" type="button">Simpan Animasi</button>
+          <button class="btn btn-primary" id="saveSheetBtn" type="button">Simpan Spritesheet</button>
+          <button class="btn btn-primary" id="saveFontBtn" type="button">Simpan Font</button>
+        </div>
+        <p class="hint fm-hint" id="saveHint"></p>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Berkas Tersimpan</h2>
+        <div class="fm-bar">
+          <button class="btn btn-secondary btn-sm" id="fmUp" type="button" hidden>&#8249; Kembali</button>
+          <span class="fm-path" id="fmPath"></span>
+          <button class="btn btn-secondary btn-sm" id="fmNewFolder" type="button">+ Folder Baru</button>
+        </div>
+        <div class="fm-list" id="fmList"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Penyimpanan</h2>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="storageFill"></div></div>
+          <span class="progress-label" id="storageLabel">0%</span>
+        </div>
+        <p class="hint fm-hint" id="storageText"></p>
+        <p class="hint" id="storageSpace"></p>
+        <p class="hint" id="autosaveStatus"></p>
+        <p class="hint">Berkas disimpan di browser ini, bukan di server. Menghapus data situs di browser akan menghapusnya juga.</p>
+        <button class="btn btn-secondary" id="storageRaiseBtn" type="button">Ubah Batas&hellip;</button>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <footer class="app-footer">
-  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.7.5 &middot; MIT
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.7.8 &middot; MIT
 </footer>
 
 
@@ -770,5 +837,6 @@
 <script src="js/tabs.js"></script>
 <script src="js/paint.js"></script>
 <script src="js/extras.js"></script>
+<script src="js/storage.js"></script>
 </body>
 </html>

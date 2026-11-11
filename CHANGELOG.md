@@ -2,6 +2,20 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.7.8 — 2026-11-11
+### Added
+- **Save / Load** (new tab *Save / Load*, in the new **Files** group of the menu). Keep your work inside the browser and open it again later. Nothing is uploaded.
+  - Three kinds of files: **Animation** (all frames with their names and layers, plus the Player and animation-export settings), **Spritesheet** (the built or merged sheet and its settings; it can be opened into the Spritesheet / Export tabs or sent to the Merge tab) and **Font** (everything of the Font Creator: glyphs, added characters, size, spacing, name).
+  - **Folders.** Files are shown as folders. The three folders **Animation**, **Spritesheet** and **Font** always exist; you can make your own with **+ New Folder**, rename or delete them. Open a folder to see its files, each with a small picture, size and date. A file can be **Opened**, **Overwritten** with your current work, **Renamed**, **Moved** to another folder or **Deleted**. Saving with a name that already exists asks whether to overwrite or keep a copy.
+  - Opening an animation asks whether to **replace** the current frames or **add them at the end**; unsaved changes are mentioned first.
+- **Recovery Mode.** The app autosaves your current animation, font and merged sheet a few seconds after you stop working (and when the page is hidden). If the page was closed or crashed with work that was never saved, the next start asks to **Restore**, **Discard** or **Skip**. *Skip* pauses autosave so the snapshot is not overwritten; the **Recovery Mode** card in the Save / Load tab restores or discards it later. The contents of the Merge tab's slots are not part of the snapshot, only the merged result.
+- **Storage in IndexedDB, limited to 1 GB.** The Storage card shows how much is used and the autosave status. Going over 1 GB needs your permission: the **Change Limit…** button (or the prompt that appears when a save would not fit) lets you choose 2, 4, 8 or 16 GB after you tick a confirmation, and the browser is asked for permanent storage. The choices never go above what the browser allows. If the browser is full, you get a clear message instead of a silent failure.
+- The menu has a new group **Files**, the top bar shows v2.7.8, and the "What's new" notice has new text.
+
+### Changed
+- A fifth script, `js/storage.js`, holds all of this. It must be loaded last. The other scripts are unchanged.
+- The Frame Size undo and the Background undo are cleared when frames are replaced by opening a file.
+
 ## 2.7.5 — 2026-11-09
 No new features: this update only reorganizes the code. The app looks and works exactly as in 2.7.0.
 

@@ -2,6 +2,20 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.7.8 — 2026-11-11
+### Ditambah
+- **Simpan / Buka** (tab baru *Simpan & Buka*, di grup menu baru **Berkas**). Simpan pekerjaanmu di dalam browser dan buka lagi nanti. Tidak ada yang diunggah.
+  - Tiga jenis berkas: **Animasi** (semua frame beserta nama dan layer-nya, plus pengaturan Player dan export animasi), **Spritesheet** (sheet hasil bangun atau gabung beserta pengaturannya; bisa dibuka ke tab Spritesheet / Export atau dikirim ke tab Gabung) dan **Font** (semua isi Font Creator: huruf, karakter tambahan, ukuran, jarak, nama).
+  - **Folder.** Berkas tampil sebagai folder. Tiga folder **Animasi**, **Spritesheet**, dan **Font** selalu ada; kamu bisa membuat folder sendiri dengan **+ Folder Baru**, mengubah namanya, atau menghapusnya. Buka folder untuk melihat isinya, lengkap dengan gambar kecil, ukuran, dan tanggal. Berkas bisa **Dibuka**, **Ditimpa** dengan pekerjaanmu sekarang, **Diubah namanya**, **Dipindah** ke folder lain, atau **Dihapus**. Menyimpan dengan nama yang sudah ada akan bertanya: timpa atau simpan salinan.
+  - Membuka animasi bertanya apakah frame yang sekarang mau **diganti** atau frame baru **ditambahkan di akhir**; perubahan yang belum disimpan disebut lebih dulu.
+- **Mode Pemulihan.** Aplikasi menyimpan otomatis animasi, font, dan sheet gabunganmu beberapa detik setelah kamu berhenti bekerja (dan saat halaman disembunyikan). Kalau halaman tertutup atau macet saat ada pekerjaan yang belum disimpan, saat dibuka lagi kamu ditanya: **Pulihkan**, **Buang**, atau **Lewati**. *Lewati* menjeda simpan otomatis supaya cadangan tidak tertimpa; kartu **Mode Pemulihan** di tab Simpan & Buka bisa memulihkan atau membuangnya nanti. Isi slot di tab Gabung tidak ikut dicadangkan, hanya hasil gabungannya.
+- **Penyimpanan di IndexedDB, dibatasi 1 GB.** Kartu Penyimpanan menunjukkan pemakaian dan status simpan otomatis. Melewati 1 GB butuh izinmu: tombol **Ubah Batas…** (atau pertanyaan yang muncul saat simpanan tidak muat) membiarkanmu memilih 2, 4, 8, atau 16 GB setelah kamu mencentang konfirmasi, dan browser diminta menjaga penyimpanan agar permanen. Pilihannya tidak pernah melebihi yang diizinkan browser. Kalau browser penuh, kamu mendapat pesan yang jelas, bukan gagal diam-diam.
+- Menu punya grup baru **Berkas**, bilah atas menampilkan v2.7.8, dan pemberitahuan "Baru" berisi teks baru.
+
+### Diubah
+- Skrip kelima, `js/storage.js`, memuat semua ini. Harus dimuat paling akhir. Skrip lainnya tidak berubah.
+- Urungkan Ukuran frame dan urungkan Background dikosongkan saat frame diganti lewat membuka berkas.
+
 ## 2.7.5 — 2026-11-09
 Tidak ada fitur baru: update ini hanya merapikan kode. Tampilan dan cara kerja aplikasi sama persis seperti 2.7.0.
 

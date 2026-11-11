@@ -2,9 +2,9 @@
 
 English | [Bahasa Indonesia](README.id.md)
 
-A small web app that turns video, GIF and images into a spritesheet. Edit frames, remove backgrounds, merge two or more sheets, export as images or as an animation, or draw your own pixel font and export it as a TTF. It runs 100% in your browser: plain HTML, CSS and JavaScript, no build step, nothing is uploaded.
+A small web app that turns video, GIF and images into a spritesheet. Edit frames, remove backgrounds, merge two or more sheets, export as images or as an animation, save and reopen your work in folders, or draw your own pixel font and export it as a TTF. It runs 100% in your browser: plain HTML, CSS and JavaScript, no build step, nothing is uploaded.
 
-Version 2.7.5 · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
+Version 2.7.8 · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
 
 Made by **Farelfhmc** · Studio Fhilion
 
@@ -29,9 +29,13 @@ Open the app (online via GitHub Pages, or open `index.html` locally). Tabs, in o
 9. **Export** — type a **File name**, choose **PNG / JPG / WebP** (JPG and WebP have a quality slider; JPG fills transparent areas with the background color you pick), then download the spritesheet, **all frames as one ZIP** (or one by one), or the JSON metadata (frame positions and names). If you changed frames after building the sheet, Export rebuilds it for you.
    **Animation export** (second card in the Export tab): make a **GIF**, an **animated WebP** or an **MP4** video from the frames. Set *Speed* (1–60 FPS), *Size* (1×–8×, whole-number scaling), *Play mode* (**Loop**, **Ping-pong**, **Once**), *From / To frame* (empty = first / last) and **Transparent background** (GIF and WebP) or a background color. GIF uses up to 255 colors and all-or-nothing transparency; WebP keeps full transparency (quality 100 = sharpest); MP4 has no transparency and needs a browser with WebCodecs (recent Chrome, Edge or Safari). Frames of different sizes are centered. The file is named `name_anim.gif` / `.webp` / `.mp4`. Everything is encoded inside the app: no library, nothing is uploaded.
 
+10. **Save / Load** — keep your work in this browser and open it later. Type a **Name**, pick a **Folder** (or leave it automatic) and press **Save Animation** (frames with layers and names, plus Player and animation-export settings), **Save Spritesheet** (the built or merged sheet and its settings) or **Save Font** (the whole Font Creator). Files appear as folders: **Animation**, **Spritesheet**, **Font** and any you make with **+ New Folder**. Open a folder, then **Open**, **Overwrite** (with your current work), **Rename**, **Move** or **Delete** a file. Opening an animation lets you replace the current frames or add them at the end; a saved spritesheet can be opened into the Spritesheet / Export tabs or sent to the Merge tab.
+    **Recovery Mode:** the app autosaves a few seconds after you stop working. If the page closed with unsaved work, the next start offers **Restore**, **Discard** or **Skip** (Skip pauses autosave; the **Recovery Mode** card in this tab restores or discards it later). The slots of the Merge tab are not part of the snapshot, only the merged result.
+    **Storage:** everything lives in IndexedDB in this browser (never uploaded) and is limited to **1 GB**. Going over needs your permission: **Change Limit…** (or the prompt when a save would not fit) offers 2, 4, 8 or 16 GB after you confirm, and asks the browser to keep the data permanent. Clearing the site data in the browser deletes saved files too.
+
 **Pixelated vs Smoothed** (top right). *Pixelated* never blends colors: best for pixel art. *Smoothed* averages when shrinking and interpolates when enlarging: better for photos and video. The setting applies when frames are extracted or the sheet is built, so rebuild after changing it.
 
-**Tips.** Use a small frame size (e.g. 64–128 px) for video. Lower FPS gives fewer, cleaner frames. Everything stays in memory; refreshing the page clears your frames and your font.
+**Tips.** Use a small frame size (e.g. 64–128 px) for video. Lower FPS gives fewer, cleaner frames. Work is kept in memory while the page is open; use **Save / Load** to keep it. Recovery Mode brings back unsaved work after a refresh or crash.
 
 ## Project structure
 ```
@@ -42,19 +46,20 @@ spritesheet-studio/
 │   ├── core.js       state, helpers, GIF decoder, video frames, background removal, spritesheet builder
 │   ├── tabs.js       frame lists, Import, encoders (GIF / WebP / MP4), Export, Merge, Frame size, event wiring
 │   ├── paint.js      Paint Sprite: layers, lasso, Smart Split, color wheel
-│   └── extras.js     Player, what's-new notice, language (ID / EN), Font Creator, init
+│   ├── extras.js     Player, what's-new notice, language (ID / EN), Font Creator, init
+│   └── storage.js    Save / Load, folders, Recovery Mode, IndexedDB (1 GB limit)
 ├── README.md / README.id.md
 ├── CHANGELOG.md / CHANGELOG.id.md
 └── LICENSE
 ```
-The four scripts are plain (non-module) files that share one scope, so `index.html` must load them in this order: `core.js`, `tabs.js`, `paint.js`, `extras.js`. There is still no build step.
+The five scripts are plain (non-module) files that share one scope, so `index.html` must load them in this order: `core.js`, `tabs.js`, `paint.js`, `extras.js`, `storage.js`. There is still no build step.
 
 ## Run locally
 Open `index.html` in a browser. No install needed.
 
 ## Deploy to GitHub Pages
 1. Create a GitHub account, then **+ → New repository**. Name it (e.g. `spritesheet-studio`), set **Public**, click **Create repository**.
-2. **Add file → Upload files**. Upload the *contents* of the project folder (`index.html`, `style.css`, the `js` folder with its 4 files, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`) — extract the ZIP first. Click **Commit changes**.
+2. **Add file → Upload files**. Upload the *contents* of the project folder (`index.html`, `style.css`, the `js` folder with its 5 files, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`) — extract the ZIP first. Click **Commit changes**.
 3. **Settings → Pages**. Under *Build and deployment*, Source: **Deploy from a branch**, Branch: **main**, folder **/ (root)**, **Save**.
 4. Wait 1–2 minutes. Your site: `https://<username>.github.io/<repo-name>/`.
 

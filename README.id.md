@@ -2,9 +2,9 @@
 
 [English](README.md) | Bahasa Indonesia
 
-Aplikasi web kecil untuk mengubah video, GIF, dan gambar menjadi spritesheet. Bisa edit frame, hapus background, gabung dua sheet atau lebih, lalu export sebagai gambar atau animasi, atau membuat font pixel sendiri dan mengekspornya sebagai TTF. Semuanya jalan 100% di browser: HTML, CSS, dan JavaScript biasa, tanpa build, tidak ada file yang diunggah ke server.
+Aplikasi web kecil untuk mengubah video, GIF, dan gambar menjadi spritesheet. Bisa edit frame, hapus background, gabung dua sheet atau lebih, lalu export sebagai gambar atau animasi, simpan dan buka lagi pekerjaanmu dalam folder, atau membuat font pixel sendiri dan mengekspornya sebagai TTF. Semuanya jalan 100% di browser: HTML, CSS, dan JavaScript biasa, tanpa build, tidak ada file yang diunggah ke server.
 
-Versi 2.7.5 · [Changelog](CHANGELOG.id.md) · [Lisensi MIT](LICENSE)
+Versi 2.7.8 · [Changelog](CHANGELOG.id.md) · [Lisensi MIT](LICENSE)
 
 Dibuat oleh **Farelfhmc** · Studio Fhilion
 
@@ -29,9 +29,13 @@ Buka aplikasinya (online lewat GitHub Pages, atau buka `index.html` di perangkat
 9. **Export** — isi **Nama file**, pilih **PNG / JPG / WebP** (JPG dan WebP punya slider kualitas; JPG mengisi area transparan dengan warna latar pilihanmu), lalu unduh spritesheet, **semua frame jadi satu ZIP** (atau satu per satu), atau JSON metadata (posisi dan nama frame). Kalau frame berubah setelah sheet dibangun, Export membangunnya ulang otomatis.
    **Export animasi** (kartu kedua di tab Export): buat **GIF**, **WebP animasi**, atau video **MP4** dari frame. Atur *Kecepatan* (1–60 FPS), *Ukuran* (1×–8×, skala bilangan bulat), *Mode putar* (**Ulang**, **Bolak-balik**, **Sekali**), *Dari / Sampai frame* (kosong = pertama / terakhir), dan **Latar transparan** (GIF dan WebP) atau warna latar. GIF memakai paling banyak 255 warna dan transparansi ada-atau-tidak; WebP mempertahankan transparansi penuh (kualitas 100 = paling tajam); MP4 tidak punya transparansi dan butuh browser dengan WebCodecs (Chrome, Edge, atau Safari terbaru). Frame yang ukurannya berbeda diletakkan di tengah. Nama file: `nama_anim.gif` / `.webp` / `.mp4`. Semua dibuat di dalam aplikasi: tanpa library, tidak ada yang diunggah.
 
+10. **Simpan & Buka** — simpan pekerjaanmu di browser ini dan buka lagi nanti. Isi **Nama**, pilih **Folder** (atau biarkan otomatis), lalu tekan **Simpan Animasi** (frame beserta layer dan nama, plus pengaturan Player dan export animasi), **Simpan Spritesheet** (sheet hasil bangun atau gabung beserta pengaturannya) atau **Simpan Font** (seluruh Font Creator). Berkas tampil sebagai folder: **Animasi**, **Spritesheet**, **Font**, dan folder buatanmu lewat **+ Folder Baru**. Buka folder, lalu **Buka**, **Timpa** (dengan pekerjaanmu sekarang), **Ubah nama**, **Pindah**, atau **Hapus** berkas. Membuka animasi memberi pilihan mengganti frame yang sekarang atau menambahkannya di akhir; spritesheet tersimpan bisa dibuka ke tab Spritesheet / Export atau dikirim ke tab Gabung.
+    **Mode Pemulihan:** aplikasi menyimpan otomatis beberapa detik setelah kamu berhenti bekerja. Kalau halaman tertutup saat ada pekerjaan yang belum disimpan, saat dibuka lagi kamu ditawari **Pulihkan**, **Buang**, atau **Lewati** (Lewati menjeda simpan otomatis; kartu **Mode Pemulihan** di tab ini memulihkan atau membuangnya nanti). Slot di tab Gabung tidak ikut dicadangkan, hanya hasil gabungannya.
+    **Penyimpanan:** semuanya ada di IndexedDB di browser ini (tidak pernah diunggah) dan dibatasi **1 GB**. Melewatinya butuh izinmu: **Ubah Batas…** (atau pertanyaan saat simpanan tidak muat) menawarkan 2, 4, 8, atau 16 GB setelah kamu konfirmasi, dan meminta browser menjaga data tetap permanen. Menghapus data situs di browser juga menghapus berkas tersimpan.
+
 **Pixelated vs Smoothed** (kanan atas). *Pixelated* tidak pernah mencampur warna: paling cocok untuk pixel art. *Smoothed* merata-ratakan warna saat diperkecil dan menghaluskan saat diperbesar: lebih cocok untuk foto/video. Pengaturan ini berlaku saat frame diekstrak atau sheet dibangun, jadi bangun ulang setelah mengubahnya.
 
-**Tips.** Untuk video pakai ukuran frame kecil (mis. 64–128 px). FPS lebih rendah = frame lebih sedikit dan rapi. Semua data hanya di memori; refresh halaman menghapus frame dan font-mu.
+**Tips.** Untuk video pakai ukuran frame kecil (mis. 64–128 px). FPS lebih rendah = frame lebih sedikit dan rapi. Selama halaman terbuka, pekerjaan ada di memori; pakai **Simpan & Buka** untuk menyimpannya. Mode Pemulihan mengembalikan pekerjaan yang belum disimpan setelah refresh atau macet.
 
 ## Struktur proyek
 ```
@@ -42,19 +46,20 @@ spritesheet-studio/
 │   ├── core.js       state, fungsi bantu, decoder GIF, frame video, hapus background, pembuat spritesheet
 │   ├── tabs.js       daftar frame, Import, encoder (GIF / WebP / MP4), Export, Gabung, Ukuran frame, event
 │   ├── paint.js      Paint Sprite: layer, laso, Smart Split, color wheel
-│   └── extras.js     Player, pemberitahuan baru, bahasa (ID / EN), Font Creator, init
+│   ├── extras.js     Player, pemberitahuan baru, bahasa (ID / EN), Font Creator, init
+│   └── storage.js    Simpan / Buka, folder, Mode Pemulihan, IndexedDB (batas 1 GB)
 ├── README.md / README.id.md
 ├── CHANGELOG.md / CHANGELOG.id.md
 └── LICENSE
 ```
-Keempat skrip adalah file biasa (bukan module) yang berbagi satu scope, jadi `index.html` harus memuatnya berurutan: `core.js`, `tabs.js`, `paint.js`, `extras.js`. Tetap tanpa build.
+Kelima skrip adalah file biasa (bukan module) yang berbagi satu scope, jadi `index.html` harus memuatnya berurutan: `core.js`, `tabs.js`, `paint.js`, `extras.js`, `storage.js`. Tetap tanpa build.
 
 ## Jalankan lokal
 Buka `index.html` di browser. Tidak perlu instal apa pun.
 
 ## Deploy ke GitHub Pages (untuk pemula)
 1. Buat akun di github.com, lalu tekan **+ → New repository**. Beri nama (mis. `spritesheet-studio`), pilih **Public**, klik **Create repository**.
-2. Klik **uploading an existing file** (atau **Add file → Upload files**). Unggah *isi* folder proyek (`index.html`, `style.css`, folder `js` beserta 4 file di dalamnya, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`). Ekstrak ZIP dulu, jangan unggah ZIP-nya. Klik **Commit changes**.
+2. Klik **uploading an existing file** (atau **Add file → Upload files**). Unggah *isi* folder proyek (`index.html`, `style.css`, folder `js` beserta 5 file di dalamnya, `README.md`, `README.id.md`, `LICENSE`, `CHANGELOG.md`, `CHANGELOG.id.md`). Ekstrak ZIP dulu, jangan unggah ZIP-nya. Klik **Commit changes**.
 3. Buka **Settings → Pages**. Di *Build and deployment*, Source: **Deploy from a branch**, Branch: **main**, folder **/ (root)**, lalu **Save**.
 4. Tunggu 1–2 menit. Situsmu: `https://<username>.github.io/<nama-repo>/`.
 

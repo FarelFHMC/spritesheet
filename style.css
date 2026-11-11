@@ -51,7 +51,8 @@ h2 { margin: 0; }
 .topbar.open .menu .nav-group:nth-child(1) { transition-delay: .06s; }
 .topbar.open .menu .nav-group:nth-child(2) { transition-delay: .11s; }
 .topbar.open .menu .nav-group:nth-child(3) { transition-delay: .16s; }
-.topbar.open .menu .prefs { transition-delay: .21s; }
+.topbar.open .menu .nav-group:nth-child(4) { transition-delay: .21s; }
+.topbar.open .menu .prefs { transition-delay: .26s; }
 @media (prefers-reduced-motion: reduce) {
   .menu, .menu-backdrop, .menu .nav-group, .menu .prefs, .bars, .bars::before, .bars::after { transition: none !important; }
 }
@@ -338,3 +339,30 @@ body.paint-mode .app-main { padding: 0; max-width: none; }
 .fc-preview-wrap { margin-top: 12px; max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; overscroll-behavior: contain; }
 .fc-preview-wrap canvas { display: block; image-rendering: pixelated; }
 body.smooth .fc-stage canvas, body.smooth .fc-cell canvas, body.smooth .fc-preview-wrap canvas { image-rendering: pixelated; }
+
+/* Save / Load (v2.7.8): folders, files, dialogs */
+.btn-danger { color: var(--danger); border-color: var(--danger); }
+.btn-primary.btn-danger { background: var(--danger); color: var(--on-accent); }
+.fm-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.fm-path { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--dim); overflow-wrap: anywhere; }
+.fm-path b { color: var(--text); }
+.fm-list { display: flex; flex-direction: column; gap: 8px; }
+.fm-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; background: var(--panel); }
+.fm-folder { cursor: pointer; }
+.fm-folder:hover { background: var(--soft); }
+.fm-ic { flex: 0 0 auto; width: 34px; height: 34px; color: var(--accent); display: grid; place-items: center; }
+.fm-ic svg { width: 30px; height: 30px; }
+.fm-thumb { flex: 0 0 auto; width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; border-radius: 3px; border: 1px solid var(--line); }
+.fm-info { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; }
+.fm-name { overflow-wrap: anywhere; }
+.fm-sub { font-size: 12px; color: var(--dim); }
+.fm-acts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+.fm-folder .fm-acts { flex: 0 0 auto; }
+.fm-hint { margin-top: 10px; }
+.progress-fill.warn { background: var(--danger); }
+.ss-modal { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ss-modal-box { width: min(420px, 100%); max-height: 90vh; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.ss-modal-title { margin: 0; font-size: 17px; font-weight: 650; }
+.ss-modal-text { margin: 0; font-size: 14px; color: var(--dim); overflow-wrap: anywhere; }
+.ss-modal-box .field input[type=text], .ss-modal-box .field select { width: 100%; }
+.ss-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
