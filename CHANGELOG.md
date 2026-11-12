@@ -2,6 +2,21 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.7.9 — 2026-11-12
+### Added
+- **Onion skinning** in Paint Sprite. The frames before and after the one you are drawing appear as a faint shadow *behind* it, so you can see where the motion comes from and where it goes.
+  - Turn it on with the new button in the frame bar (next to ▶), with the **O** key, or with **Onion skin** in the *View* category, which also opens the **onion settings**.
+  - **Onion settings:** *Frames before* and *Frames after* (0–5 each), *Shadow opacity* (5–90%), *Fainter the farther away*, *Wrap round from the end to the start (loop)*, and *Tint with colors* with a color for before (red) and one for after (blue). **Reset** returns to the defaults. The choices are remembered in this browser.
+  - It is a display aid only: it never changes a frame, and it is not part of the spritesheet, the ZIP, the JSON or any export. Frames of another size are centered. The faint picture is cached, so painting stays smooth.
+- **Custom theme.** Make the app look the way you like. Choose a ready-made theme (**Default**, **Ocean**, **Sunset**, **Grape**, **Rose**, **Mono**) and change its four colors: *Background*, *Panel*, *Text* and *Accent*. Lines, hover, dimmed text and the checkerboard are mixed from them. Colors are kept separately for Light and Dark mode, so the Light / Dark switch keeps working. If the text and the background are too alike, a warning appears. **Default** returns to the built-in colors. The theme is saved in the browser and applied before the page shows, so there is no flash.
+- **Settings button** (gear, top right of the top bar; also **Settings…** in the menu). One dialog brings together **Language** (ID / EN), **Mode** (Light / Dark) and the **Theme** settings. It closes with *Close*, Esc or a tap outside.
+
+### Changed
+- **Language** and **Light / Dark** moved from the menu into the Settings dialog. The *Pixelated / Smoothed* switch stays in the menu.
+- The top bar shows v2.7.9, and the "What's new" notice has new text.
+- The README explains how to keep the `js` folder when uploading to GitHub (see *Deploy to GitHub Pages*).
+- Files changed: `index.html`, `style.css`, `js/core.js` (version), `js/paint.js` (onion skin), `js/extras.js` (theme, Settings, text), README and Changelog. `js/tabs.js` and `js/storage.js` are unchanged.
+
 ## 2.7.8 — 2026-11-11
 ### Added
 - **Save / Load** (new tab *Save / Load*, in the new **Files** group of the menu). Keep your work inside the browser and open it again later. Nothing is uploaded.

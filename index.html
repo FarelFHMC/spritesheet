@@ -5,15 +5,21 @@
 <meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="author" content="Farelfhmc (Studio Fhilion)">
-<meta name="description" content="Spritesheet Studio v2.7.8 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
+<meta name="description" content="Spritesheet Studio v2.7.9 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <script>
-/* set the theme before the page paints (saved choice, else the system setting) */
+/* set the theme before the page paints (saved choice, else the system setting), then the custom colors if they are on */
 (function () {
   var t = null;
   try { t = localStorage.getItem('ss.theme'); } catch (e) {}
   if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', t);
+  try {
+    var c = JSON.parse(localStorage.getItem('ss.custom') || 'null');
+    if (c && c.on && c[t] && c[t].vars) {
+      for (var k in c[t].vars) if (k.indexOf('--') === 0) document.documentElement.style.setProperty(k, String(c[t].vars[k]));
+    }
+  } catch (e) {}
 })();
 </script>
 <link rel="stylesheet" href="style.css">
@@ -23,7 +29,8 @@
 <header class="topbar" id="topbar">
   <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span class="bars" aria-hidden="true"></span></button>
   <span class="page-title" id="menuCurrent">Import</span>
-  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.7.8</span></span>
+  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.7.9</span></span>
+  <button class="menu-btn settings-btn" id="settingsBtn" type="button" aria-haspopup="dialog" aria-label="Pengaturan" title="Pengaturan"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
   <div class="menu" id="menu">
     <nav class="tabs" role="tablist" aria-label="Bagian aplikasi">
@@ -60,23 +67,12 @@
       </nav>
     <div class="prefs">
       <div class="pref">
-        <span class="pref-label">Tema</span>
-        <div class="seg" role="group" aria-label="Tema">
-          <button type="button" data-theme-set="light">Terang</button><button type="button" data-theme-set="dark" class="on">Gelap</button>
-        </div>
-      </div>
-      <div class="pref">
         <span class="pref-label">Tampilan</span>
         <div class="seg" role="group" aria-label="Rendering">
           <button type="button" data-smooth="0" class="on">Pixelated</button><button type="button" data-smooth="1">Smoothed</button>
         </div>
       </div>
-      <div class="pref">
-        <span class="pref-label">Bahasa</span>
-        <div class="seg" role="group" aria-label="Language">
-          <button type="button" data-lang="id" class="on">ID</button><button type="button" data-lang="en">EN</button>
-        </div>
-      </div>
+      <button class="btn btn-secondary btn-sm" id="menuSettingsBtn" type="button">Pengaturan&hellip;</button>
     </div>
   </div>
 </header>
@@ -86,8 +82,8 @@
   <!-- ===================== WHAT'S NEW NOTICE ===================== -->
   <div class="notice" id="newsNotice" role="note" hidden>
     <div class="notice-body">
-      <p class="notice-title">Baru di v2.7.8</p>
-      <p class="notice-text">Simpan dan buka pekerjaanmu: animasi, spritesheet, dan font tersimpan di browser dalam folder. Ada Mode Pemulihan yang menyimpan otomatis, jadi pekerjaan yang belum sempat disimpan bisa dikembalikan. Batas penyimpanan 1 GB; bisa dinaikkan dengan izinmu.</p>
+      <p class="notice-title">Baru di v2.7.9</p>
+      <p class="notice-text">Onion skin di Paint Sprite menampilkan frame sebelum dan sesudahnya sebagai bayangan samar, jadi gerakan lebih mudah digambar. Warna tema bisa diatur sendiri. Tombol Pengaturan di bar atas menyatukan tema, mode Terang / Gelap, dan bahasa.</p>
       <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
     </div>
     <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
@@ -368,6 +364,7 @@
         <span class="zoom-label" id="paintZoomLabel">100%</span>
         <button class="btn btn-secondary btn-sm" id="paintZoomInBtn" type="button" aria-label="Zoom in">+</button>
         <button class="btn btn-secondary btn-sm" id="paintFitBtn" type="button">Fit</button>
+        <button class="btn btn-secondary btn-sm" id="paintOnionCfgBtn" type="button" aria-expanded="false">Onion skin</button>
       </div>
 
       <!-- popups (one at a time) -->
@@ -441,6 +438,28 @@
       </div>
       </div>
 
+      <div class="paint-pop" id="paintOnion" hidden>
+        <label class="field checkbox-field"><input type="checkbox" id="onionOn"> Aktifkan onion skin</label>
+        <p class="hint">Menampilkan frame di sekitar frame yang sedang digambar sebagai bayangan samar. Hanya tampilan: tidak ikut ke spritesheet atau export.</p>
+        <label class="field"><span>Frame sebelumnya (<span id="onionBeforeVal">2</span>)</span>
+          <input type="range" id="onionBefore" min="0" max="5" value="2">
+        </label>
+        <label class="field"><span>Frame sesudahnya (<span id="onionAfterVal">1</span>)</span>
+          <input type="range" id="onionAfter" min="0" max="5" value="1">
+        </label>
+        <label class="field"><span>Opasitas bayangan (<span id="onionOpacityVal">40</span>%)</span>
+          <input type="range" id="onionOpacity" min="5" max="90" value="40">
+        </label>
+        <label class="field checkbox-field"><input type="checkbox" id="onionFade" checked> Makin jauh makin pudar</label>
+        <label class="field checkbox-field"><input type="checkbox" id="onionLoop"> Sambung dari akhir ke awal (loop)</label>
+        <label class="field checkbox-field"><input type="checkbox" id="onionTint" checked> Beri warna pembeda</label>
+        <div class="onion-colors" id="onionColors">
+          <label class="field"><span>Sebelum</span><input type="color" id="onionColB" value="#ff5c5c"></label>
+          <label class="field"><span>Sesudah</span><input type="color" id="onionColA" value="#4da3ff"></label>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="onionResetBtn" type="button">Atur ulang</button>
+      </div>
+
       <div class="paint-pop" id="paintLayers" hidden>
         <div class="layer-actions">
           <button class="btn btn-secondary btn-sm" id="layerDupBtn" type="button">Duplikat</button>
@@ -483,6 +502,7 @@
       <div class="frames-row">
         <button class="frame-add" id="paintAddFrameBtn" type="button" aria-label="Tambah frame kosong" title="Tambah frame kosong">+</button>
         <button class="frame-add frame-play" id="paintPlayBtn" type="button" aria-label="Putar animasi" title="Putar animasi"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg></button>
+        <button class="frame-add frame-onion" id="paintOnionBtn" type="button" aria-label="Onion skin" aria-pressed="false" title="Onion skin (O)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="12" height="12" rx="1.5" opacity=".45"/><rect x="9" y="9" width="12" height="12" rx="1.5"/></svg></button>
         <div class="frame-strip" id="paintFrameStrip"></div>
       </div>
       <input type="text" id="paintName" class="frames-name" maxlength="80" spellcheck="false" autocomplete="off" placeholder="Nama frame (opsional)" aria-label="Nama frame (opsional)" hidden>
@@ -827,9 +847,46 @@
 </main>
 
 <footer class="app-footer">
-  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.7.8 &middot; MIT
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.7.9 &middot; MIT
 </footer>
 
+
+<!-- ===================== SETTINGS ===================== -->
+<div class="ss-modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+  <div class="ss-modal-box settings-box">
+    <div class="settings-head">
+      <h3 class="ss-modal-title" id="settingsTitle">Pengaturan</h3>
+      <button class="btn btn-secondary btn-sm" id="settingsClose" type="button">Tutup</button>
+    </div>
+
+    <section class="set-sec">
+      <h4 class="set-title">Bahasa</h4>
+      <div class="seg" role="group" aria-label="Language">
+        <button type="button" data-lang="id" class="on">ID</button><button type="button" data-lang="en">EN</button>
+      </div>
+    </section>
+
+    <section class="set-sec">
+      <h4 class="set-title">Mode</h4>
+      <div class="seg" role="group" aria-label="Mode">
+        <button type="button" data-theme-set="light">Terang</button><button type="button" data-theme-set="dark" class="on">Gelap</button>
+      </div>
+    </section>
+
+    <section class="set-sec">
+      <h4 class="set-title">Tema</h4>
+      <p class="hint">Pilih tema siap pakai, lalu ubah warnanya kalau mau. Warna disimpan terpisah untuk mode Terang dan Gelap.</p>
+      <div class="theme-presets" id="themePresets" role="group" aria-label="Tema"></div>
+      <div class="theme-colors">
+        <label class="theme-color"><span>Latar</span><input type="color" id="thBg" data-th="bg"></label>
+        <label class="theme-color"><span>Panel</span><input type="color" id="thPanel" data-th="panel"></label>
+        <label class="theme-color"><span>Teks</span><input type="color" id="thText" data-th="text"></label>
+        <label class="theme-color"><span>Aksen</span><input type="color" id="thAccent" data-th="accent"></label>
+      </div>
+      <p class="hint theme-warn" id="themeWarn" hidden>Warna teks dan latar terlalu mirip, tulisan jadi sulit dibaca.</p>
+    </section>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

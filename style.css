@@ -1,4 +1,4 @@
-/* Spritesheet Studio v2.7.0 — plain: system font, cool dark grey, one green accent, thin lines. */
+/* Spritesheet Studio v2.7.9 — plain: system font, cool dark grey, one green accent, thin lines. */
 :root, :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #14171a; --side: #101316; --panel: #1a1e22; --soft: #232830; --line: #2d333b;
@@ -35,7 +35,7 @@ h2 { margin: 0; }
 .topbar.open .bars { background: transparent; }
 .topbar.open .bars::before { top: 0; transform: rotate(45deg); }
 .topbar.open .bars::after { top: 0; transform: rotate(-45deg); }
-.page-title { font-weight: 650; font-size: 16px; }
+.page-title { font-weight: 650; font-size: 16px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .brand { margin-left: auto; font-size: 13px; color: var(--dim); }
 .ver { margin-left: 6px; font-size: 12px; }
 @media (max-width: 520px) { .brand { display: none; } }
@@ -366,3 +366,36 @@ body.smooth .fc-stage canvas, body.smooth .fc-cell canvas, body.smooth .fc-previ
 .ss-modal-text { margin: 0; font-size: 14px; color: var(--dim); overflow-wrap: anywhere; }
 .ss-modal-box .field input[type=text], .ss-modal-box .field select { width: 100%; }
 .ss-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+/* Settings button, Settings dialog, custom theme (v2.7.9) */
+.settings-btn { margin-left: 0; }
+.settings-btn svg { display: block; }
+.prefs .btn { justify-self: start; }
+.settings-box { width: min(460px, 100%); gap: 14px; }
+.settings-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.set-sec { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.set-sec:first-of-type { border-top: 0; padding-top: 0; }
+.set-title { margin: 0; font-size: 14px; font-weight: 650; }
+.set-sec .hint { margin: 0; }
+.set-sec .seg { justify-self: start; }
+.theme-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.theme-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 5px 10px 5px 6px; min-height: 36px; cursor: pointer; font-size: 13px; }
+.theme-chip:hover { background: var(--soft); }
+.theme-chip.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-dots { display: inline-flex; flex: none; }
+.theme-dots i { display: block; width: 14px; height: 22px; border: 1px solid var(--line); }
+.theme-dots i:first-child { border-radius: 3px 0 0 3px; }
+.theme-dots i:last-child { border-radius: 0 3px 3px 0; border-left: 0; }
+.theme-colors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.theme-color { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.theme-color input[type=color], .onion-colors input[type=color] { width: 52px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); cursor: pointer; flex: none; }
+.theme-warn { color: var(--danger); }
+
+/* Onion skin (v2.7.9) */
+.frame-add.frame-onion { border-style: solid; display: grid; place-items: center; }
+.frame-onion svg { width: 22px; height: 22px; display: block; }
+.frame-onion.on { border-color: var(--accent); color: var(--accent); background: var(--soft); }
+#paintOnionCfgBtn.on { border-color: var(--accent); color: var(--accent); }
+.onion-colors { display: flex; gap: 16px; margin: 4px 0 10px; }
+.onion-colors .field { flex-direction: row; align-items: center; gap: 8px; }
+.paint-pop .checkbox-field { margin-bottom: 6px; font-size: 14px; }

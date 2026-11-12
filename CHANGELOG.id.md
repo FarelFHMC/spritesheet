@@ -2,6 +2,21 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.7.9 — 2026-11-12
+### Ditambah
+- **Onion skinning** di Paint Sprite. Frame sebelum dan sesudah frame yang sedang digambar tampil sebagai bayangan samar *di belakangnya*, jadi kamu bisa melihat dari mana gerakan datang dan ke mana perginya.
+  - Aktifkan dengan tombol baru di bar frame (di sebelah ▶), dengan tombol **O**, atau lewat **Onion skin** di kategori *Lihat* yang juga membuka **pengaturan onion**.
+  - **Pengaturan onion:** *Frame sebelumnya* dan *Frame sesudahnya* (masing-masing 0–5), *Opasitas bayangan* (5–90%), *Makin jauh makin pudar*, *Sambung dari akhir ke awal (loop)*, dan *Beri warna pembeda* dengan satu warna untuk sebelum (merah) dan satu untuk sesudah (biru). **Atur ulang** mengembalikan ke bawaan. Pilihanmu diingat di browser ini.
+  - Hanya alat bantu tampilan: tidak pernah mengubah frame, dan tidak ikut ke spritesheet, ZIP, JSON, atau export apa pun. Frame berukuran lain diletakkan di tengah. Gambar samarnya disimpan sementara (cache), jadi menggambar tetap lancar.
+- **Tema kustom.** Atur tampilan aplikasi sesukamu. Pilih tema siap pakai (**Bawaan**, **Laut**, **Senja**, **Anggur**, **Mawar**, **Mono**) lalu ubah empat warnanya: *Latar*, *Panel*, *Teks*, dan *Aksen*. Garis, warna sentuh, teks redup, dan kotak-kotak latar dicampur otomatis dari keempatnya. Warna disimpan terpisah untuk mode Terang dan Gelap, jadi pilihan Terang / Gelap tetap berfungsi. Kalau teks dan latar terlalu mirip, muncul peringatan. **Bawaan** mengembalikan ke warna awal aplikasi. Tema disimpan di browser dan diterapkan sebelum halaman tampil, jadi tidak berkedip.
+- **Tombol Pengaturan** (ikon roda gigi di kanan atas bar atas; juga **Pengaturan…** di menu). Satu dialog menyatukan **Bahasa** (ID / EN), **Mode** (Terang / Gelap), dan pengaturan **Tema**. Ditutup dengan *Tutup*, Esc, atau ketuk di luar dialog.
+
+### Diubah
+- **Bahasa** dan **Terang / Gelap** pindah dari menu ke dialog Pengaturan. Pilihan *Pixelated / Smoothed* tetap di menu.
+- Bar atas menampilkan v2.7.9, dan pemberitahuan "Baru di" punya teks baru.
+- README menjelaskan cara menjaga folder `js` saat mengunggah ke GitHub (lihat *Deploy ke GitHub Pages*).
+- File yang berubah: `index.html`, `style.css`, `js/core.js` (versi), `js/paint.js` (onion skin), `js/extras.js` (tema, Pengaturan, teks), README, dan Changelog. `js/tabs.js` dan `js/storage.js` tidak berubah.
+
 ## 2.7.8 — 2026-11-11
 ### Ditambah
 - **Simpan / Buka** (tab baru *Simpan & Buka*, di grup menu baru **Berkas**). Simpan pekerjaanmu di dalam browser dan buka lagi nanti. Tidak ada yang diunggah.
