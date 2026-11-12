@@ -1,8 +1,8 @@
 'use strict';
 
-/* Spritesheet Studio v2.7.5 - paint: Paint Sprite (layers, lasso, smart split, colour wheel)
+/* Spritesheet Studio v2.7.9 - paint: Paint Sprite (layers, lasso, smart split, colour wheel)
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 3 of 4. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
+   Part 3 of 5. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
 /* =========================================================================
    PAINT SPRITE: the sprite fills the screen; a compact toolbar floats on top (categories:
@@ -26,6 +26,79 @@ const paint = {
 const ZOOM_STEPS = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 const TOOL_OPTS = { brush: true, eraser: true, fill: true, lasso: true };   // tools that have an options popup
 const MAX_LAYERS = 16;
+
+/* ---------- onion skin (v2.7.9) ----------
+   Display only: the neighbouring frames are drawn faintly BEHIND the current frame on the paint canvas.
+   It never touches f.canvas, so the sheet, ZIP, GIF and every other tab stay exactly as before.
+   The faint picture is cached; it is rebuilt when the frame, the frame list or a setting changes (not on every stroke). */
+const ONION_DEFAULT = { on: false, before: 2, after: 1, opacity: 40, fade: true, loop: false, tint: true, cb: '#ff5c5c', ca: '#4da3ff' };
+const onion = Object.assign({ cache: null, dirty: true }, ONION_DEFAULT);
+
+function onionHex(v, fb) { return /^#[0-9a-f]{6}$/i.test(v) ? v : fb; }
+function loadOnion() {
+  try {
+    const o = JSON.parse(localStorage.getItem('ss.onion') || 'null');
+    if (!o || typeof o !== 'object') return;
+    onion.on = !!o.on; onion.fade = o.fade !== false; onion.loop = !!o.loop; onion.tint = o.tint !== false;
+    onion.before = Math.max(0, Math.min(5, parseInt(o.before, 10) || 0));
+    onion.after = Math.max(0, Math.min(5, parseInt(o.after, 10) || 0));
+    onion.opacity = Math.max(5, Math.min(90, parseInt(o.opacity, 10) || ONION_DEFAULT.opacity));
+    onion.cb = onionHex(o.cb, ONION_DEFAULT.cb); onion.ca = onionHex(o.ca, ONION_DEFAULT.ca);
+  } catch (e) { /* storage blocked or broken: keep the defaults */ }
+}
+function saveOnion() {
+  const o = {}; Object.keys(ONION_DEFAULT).forEach((k) => { o[k] = onion[k]; });
+  try { localStorage.setItem('ss.onion', JSON.stringify(o)); } catch (e) { /* ignore */ }
+}
+
+/* neighbours to show, farthest first so the nearest one ends on top */
+function onionFrames(f) {
+  const n = state.frames.length, i = state.frames.indexOf(f), out = [];
+  if (i < 0 || n < 2) return out;
+  const used = new Set([i]);
+  const pick = (dir, count, col) => {
+    for (let k = 1; k <= count; k++) {
+      let j = i + dir * k;
+      if (onion.loop) j = ((j % n) + n) % n; else if (j < 0 || j >= n) break;
+      if (used.has(j)) break;                                   // wrapped round onto a frame that is already shown
+      used.add(j);
+      out.push({ f: state.frames[j], k, count, col });
+    }
+  };
+  pick(-1, onion.before, onion.cb);
+  pick(1, onion.after, onion.ca);
+  return out.sort((a, b) => b.k - a.k);
+}
+
+function buildOnion(f) {
+  onion.dirty = false;
+  onion.cache = null;
+  const list = onionFrames(f);
+  if (!list.length) return;
+  const w = f.canvas.width, h = f.canvas.height;
+  const out = blankCanvas(w, h), ctx = out.getContext('2d');
+  let tmp = null;
+  list.forEach((o) => {
+    const src = o.f.canvas;
+    const dx = Math.round((w - src.width) / 2), dy = Math.round((h - src.height) / 2);   // frames of another size are centred
+    ctx.globalAlpha = Math.max(0.03, onion.opacity / 100 * (onion.fade ? (o.count - o.k + 1) / o.count : 1));
+    if (onion.tint) {
+      if (!tmp || tmp.width !== src.width || tmp.height !== src.height) tmp = blankCanvas(src.width, src.height);
+      const t = tmp.getContext('2d');
+      t.globalCompositeOperation = 'source-over';
+      t.clearRect(0, 0, tmp.width, tmp.height);
+      t.drawImage(src, 0, 0);
+      t.globalCompositeOperation = 'source-in';                  // keep the shape of the frame, replace its colours
+      t.fillStyle = o.col;
+      t.fillRect(0, 0, tmp.width, tmp.height);
+      ctx.drawImage(tmp, dx, dy);
+    } else {
+      ctx.drawImage(src, dx, dy);
+    }
+  });
+  ctx.globalAlpha = 1;
+  onion.cache = out;
+}
 
 function paintFrame() { return state.frames.find((f) => f.id === paint.id) || null; }
 
@@ -128,6 +201,10 @@ function repaintPaintView() {
   const v = $('paintCanvas');
   const ctx = v.getContext('2d');
   ctx.clearRect(0, 0, v.width, v.height);
+  if (onion.on) {
+    if (onion.dirty || (onion.cache && onion.cache.width !== f.canvas.width)) buildOnion(f);
+    if (onion.cache) ctx.drawImage(onion.cache, 0, 0);
+  }
   ctx.drawImage(f.canvas, 0, 0);
 }
 
@@ -142,6 +219,7 @@ function refreshPaint() {
 function renderPaintCanvas() {
   const f = paintFrame();
   if (!f) return;
+  onion.dirty = true;                                          // another frame or the frame list may have changed
   ensureLayers(f);
   layoutPaintPad();
   const v = $('paintCanvas'), w = f.canvas.width, h = f.canvas.height;
@@ -524,6 +602,8 @@ function stepPaintZoom(dir, px, py) {
 function closePaintPops() {
   $('paintPop').hidden = true;
   $('paintOpts').hidden = true;
+  $('paintOnion').hidden = true;
+  $('paintOnionCfgBtn').setAttribute('aria-expanded', 'false');
   $('paintColorChip').setAttribute('aria-expanded', 'false');
 }
 
@@ -1303,6 +1383,60 @@ function renderLayerPanel() {
   }
 }
 
+function onionChanged() {
+  onion.dirty = true;
+  saveOnion();
+  syncOnionUI();
+  repaintPaintView();
+}
+
+function syncOnionUI() {
+  $('onionOn').checked = onion.on;
+  $('onionBefore').value = onion.before; $('onionBeforeVal').textContent = onion.before;
+  $('onionAfter').value = onion.after; $('onionAfterVal').textContent = onion.after;
+  $('onionOpacity').value = onion.opacity; $('onionOpacityVal').textContent = onion.opacity;
+  $('onionFade').checked = onion.fade;
+  $('onionLoop').checked = onion.loop;
+  $('onionTint').checked = onion.tint;
+  $('onionColB').value = onion.cb; $('onionColA').value = onion.ca;
+  $('onionColors').hidden = !onion.tint;
+  $('paintOnionBtn').classList.toggle('on', onion.on);
+  $('paintOnionBtn').setAttribute('aria-pressed', onion.on ? 'true' : 'false');
+  $('paintOnionCfgBtn').classList.toggle('on', onion.on);
+}
+
+function toggleOnion() {
+  onion.on = !onion.on;
+  onionChanged();
+  showToast(onion.on ? 'Onion skin aktif' : 'Onion skin mati');
+}
+
+function initOnion() {
+  loadOnion();
+  syncOnionUI();
+  $('paintOnionBtn').addEventListener('click', toggleOnion);
+  $('paintOnionCfgBtn').addEventListener('click', () => {
+    const open = $('paintOnion').hidden;
+    closePaintPops();
+    $('paintOnion').hidden = !open;
+    $('paintOnionCfgBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  const bind = (id, key, kind) => $(id).addEventListener(kind === 'check' ? 'change' : 'input', (e) => {
+    if (kind === 'check') onion[key] = e.target.checked;
+    else if (kind === 'color') onion[key] = onionHex(e.target.value, onion[key]);
+    else onion[key] = parseInt(e.target.value, 10) || 0;
+    onionChanged();
+  });
+  bind('onionOn', 'on', 'check'); bind('onionFade', 'fade', 'check'); bind('onionLoop', 'loop', 'check'); bind('onionTint', 'tint', 'check');
+  bind('onionBefore', 'before', 'num'); bind('onionAfter', 'after', 'num'); bind('onionOpacity', 'opacity', 'num');
+  bind('onionColB', 'cb', 'color'); bind('onionColA', 'ca', 'color');
+  $('onionResetBtn').addEventListener('click', () => {
+    const keep = onion.on;
+    Object.assign(onion, ONION_DEFAULT, { on: keep });
+    onionChanged();
+  });
+}
+
 function initPaintTab() {
   const v = $('paintCanvas'), wrap = $('paintWrap'), pop = $('paintPop'), bar = $('paintToolsBar');
   initColorWheel();
@@ -1548,6 +1682,7 @@ function initPaintTab() {
 
   document.addEventListener('keydown', (e) => {
     if (!$('panel-paint').classList.contains('active')) return;
+    if (!$('settingsModal').hidden) return;
     const t = e.target && e.target.tagName;
     if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
     const k = e.key.toLowerCase();
@@ -1561,6 +1696,7 @@ function initPaintTab() {
     if (!(e.ctrlKey || e.metaKey)) {
       const tool = { b: 'brush', e: 'eraser', g: 'fill', i: 'picker', l: 'lasso', h: 'pan' }[k];
       if (tool && paintFrame()) setPaintTool(tool);
+      else if (k === 'o' && paintFrame()) toggleOnion();
       else if (e.key === 'Escape' && paint.sel) clearSelection();
       else if ((e.key === 'Delete' || e.key === 'Backspace') && paint.sel) { e.preventDefault(); selectionOp('delete'); }
       return;
@@ -1578,6 +1714,7 @@ function initPaintTab() {
     }, 120);
   });
 
+  initOnion();
   setPaintColor(paint.color, true);
   setPaintCat('tools');
 }
