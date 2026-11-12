@@ -1,6 +1,6 @@
 'use strict';
 
-/* Spritesheet Studio v2.7.5 - extras: Player, what's-new notice, language, Font Creator, init
+/* Spritesheet Studio v2.7.9 - extras: Player, what's-new notice, language, Font Creator, init
    Made by Farelfhmc - Studio Fhilion. MIT License.
    Part 4 of 4. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
@@ -389,6 +389,22 @@ const EN = {
   'Rendering diubah. Bangun ulang spritesheet untuk menerapkannya.': 'Rendering changed. Rebuild the spritesheet to apply it.'
 };
 
+Object.assign(EN, {
+  'Baru di v2.7.9': "What's new in v2.7.9",
+  'Onion skin di Paint Sprite menampilkan frame sebelum dan sesudahnya sebagai bayangan samar, jadi gerakan lebih mudah digambar. Warna tema bisa diatur sendiri. Tombol Pengaturan di bar atas menyatukan tema, mode Terang / Gelap, dan bahasa.': 'Onion skin in Paint Sprite shows the frames before and after the current one as a faint shadow, so motion is easier to draw. Theme colors can be set your own way. The Settings button in the top bar brings theme, Light / Dark mode and language together.',
+  'Onion skin': 'Onion skin', 'Aktifkan onion skin': 'Turn on onion skin',
+  'Menampilkan frame di sekitar frame yang sedang digambar sebagai bayangan samar. Hanya tampilan: tidak ikut ke spritesheet atau export.': 'Shows the frames around the one you are drawing as a faint shadow. Display only: it is not part of the spritesheet or any export.',
+  'Frame sebelumnya (': 'Frames before (', 'Frame sesudahnya (': 'Frames after (', 'Opasitas bayangan (': 'Shadow opacity (',
+  'Makin jauh makin pudar': 'Fainter the farther away', 'Sambung dari akhir ke awal (loop)': 'Wrap round from the end to the start (loop)',
+  'Beri warna pembeda': 'Tint with colors', 'Sebelum': 'Before', 'Sesudah': 'After',
+  'Onion skin aktif': 'Onion skin on', 'Onion skin mati': 'Onion skin off',
+  'Pengaturan': 'Settings', 'Pengaturan\u2026': 'Settings\u2026', 'Mode': 'Mode',
+  'Pilih tema siap pakai, lalu ubah warnanya kalau mau. Warna disimpan terpisah untuk mode Terang dan Gelap.': 'Pick a ready-made theme, then change its colors if you like. Colors are kept separately for Light and Dark mode.',
+  'Bawaan': 'Default', 'Laut': 'Ocean', 'Senja': 'Sunset', 'Anggur': 'Grape', 'Mawar': 'Rose', 'Mono': 'Mono',
+  'Latar': 'Background', 'Panel': 'Panel', 'Teks': 'Text', 'Aksen': 'Accent',
+  'Warna teks dan latar terlalu mirip, tulisan jadi sulit dibaca.': 'The text and background colors are too alike, so the text is hard to read.'
+});
+
 function tr(key, n) {
   let v = state.lang === 'en' && EN[key] !== undefined ? EN[key] : key;
   return n === undefined ? v : v.replace('{n}', n);
@@ -427,6 +443,7 @@ function setLang(l) {
   refreshAllFrameViews();
   updateExportUI();
   renderMergeList();
+  syncSettingsUI();
   if (fcReady) fcRenderAll(false);
 }
 
@@ -444,7 +461,7 @@ function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.querySelectorAll('[data-theme-set]').forEach((b) => b.classList.toggle('on', b.dataset.themeSet === t));
   try { localStorage.setItem('ss.theme', t); } catch (e) {}
-  if (fcReady) fcRenderAll(false);
+  applyCustomTheme();
 }
 
 function initPrefs() {
@@ -462,6 +479,173 @@ function initPrefs() {
   state.lang = lang;
   setSmooth(smooth, false);
   applyLang();
+}
+
+/* =========================================================================
+   CUSTOM THEME + SETTINGS DIALOG (v2.7.9)
+   The built-in Light / Dark themes live in style.css. A custom theme only overrides CSS variables on <html>:
+   four colors the person picks (background, panel, text, accent); the rest (lines, hover, dim text, ...) are mixed from them.
+   Colors are kept separately for Light and Dark mode, so the Light / Dark switch always works.
+   Saved in localStorage 'ss.custom' with the ready-made variables, so index.html can apply them before the first paint.
+   ========================================================================= */
+const THEME_KEYS = ['bg', 'panel', 'text', 'accent'];
+const THEME_VAR_NAMES = ['--bg', '--side', '--panel', '--soft', '--line', '--text', '--dim', '--accent', '--on-accent', '--danger', '--ck1', '--ck2'];
+const THEME_DEFAULTS = {
+  dark: { bg: '#14171a', panel: '#1a1e22', text: '#e4e7ea', accent: '#8fbf5a' },
+  light: { bg: '#eef1f4', panel: '#f7f9fb', text: '#15181c', accent: '#3d7a1c' }
+};
+const THEME_PRESETS = [
+  { id: 'ocean', name: 'Laut', dark: { bg: '#0f1b26', panel: '#142433', text: '#dbe8f2', accent: '#4fb3e8' }, light: { bg: '#eaf3f9', panel: '#f5fafd', text: '#10202c', accent: '#0f6fa8' } },
+  { id: 'sunset', name: 'Senja', dark: { bg: '#1d1415', panel: '#271a1b', text: '#f1e4e0', accent: '#ff8a5b' }, light: { bg: '#faf0ea', panel: '#fff8f4', text: '#2b1a14', accent: '#c2481a' } },
+  { id: 'grape', name: 'Anggur', dark: { bg: '#17131f', panel: '#1f1a2b', text: '#e8e3f2', accent: '#b48cf2' }, light: { bg: '#f1edf8', panel: '#f9f7fd', text: '#1d1530', accent: '#6a3fb5' } },
+  { id: 'rose', name: 'Mawar', dark: { bg: '#1c1418', panel: '#261a21', text: '#f2e3ea', accent: '#f27aa8' }, light: { bg: '#fbeef3', panel: '#fff7fa', text: '#2b1520', accent: '#b8316a' } },
+  { id: 'mono', name: 'Mono', dark: { bg: '#121212', panel: '#1a1a1a', text: '#ededed', accent: '#d0d0d0' }, light: { bg: '#efefef', panel: '#fafafa', text: '#161616', accent: '#333333' } }
+];
+const customTheme = { on: false, preset: 'default', dark: Object.assign({}, THEME_DEFAULTS.dark), light: Object.assign({}, THEME_DEFAULTS.light) };
+
+/* FC-THEME-BEGIN (pure functions: no DOM, tested in Node) */
+function thHexOk(v) { return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v); }
+function thRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function thHex(rgb) { return '#' + rgb.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0')).join(''); }
+/* t = 0 gives a, t = 1 gives b */
+function thMix(a, b, t) { const x = thRgb(a), y = thRgb(b); return thHex(x.map((c, i) => c + (y[i] - c) * t)); }
+function thLum(h) {
+  const l = thRgb(h).map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+  return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
+}
+function thContrast(a, b) { const x = thLum(a), y = thLum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+function themeVars(c, mode) {
+  const dark = mode === 'dark';
+  return {
+    '--bg': c.bg, '--panel': c.panel, '--text': c.text, '--accent': c.accent,
+    '--side': thMix(c.bg, '#000000', dark ? 0.2 : 0.04),
+    '--soft': thMix(c.bg, c.text, dark ? 0.09 : 0.08),
+    '--line': thMix(c.bg, c.text, dark ? 0.17 : 0.2),
+    '--dim': thMix(c.text, c.bg, 0.42),
+    '--on-accent': thLum(c.accent) > 0.4 ? '#0e1114' : '#ffffff',
+    '--danger': dark ? '#ff8a80' : '#b3261e',
+    '--ck1': thMix(c.bg, c.text, dark ? 0.11 : 0.1),
+    '--ck2': thMix(c.bg, c.text, dark ? 0.04 : 0.04)
+  };
+}
+/* FC-THEME-END */
+
+function currentMode() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+
+function applyCustomTheme() {
+  const root = document.documentElement, mode = currentMode();
+  THEME_VAR_NAMES.forEach((n) => root.style.removeProperty(n));
+  if (customTheme.on) {
+    const v = themeVars(customTheme[mode], mode);
+    Object.keys(v).forEach((k) => root.style.setProperty(k, v[k]));
+  }
+  syncSettingsUI();
+  if (fcReady) fcRenderAll(false);
+}
+
+function saveCustomTheme() {
+  const o = { on: customTheme.on, preset: customTheme.preset };
+  ['dark', 'light'].forEach((m) => { o[m] = Object.assign({}, customTheme[m], { vars: themeVars(customTheme[m], m) }); });
+  try { localStorage.setItem('ss.custom', JSON.stringify(o)); } catch (e) { /* ignore */ }
+}
+
+function loadCustomTheme() {
+  try {
+    const o = JSON.parse(localStorage.getItem('ss.custom') || 'null');
+    if (!o || typeof o !== 'object') return;
+    customTheme.on = !!o.on;
+    customTheme.preset = typeof o.preset === 'string' ? o.preset : 'custom';
+    ['dark', 'light'].forEach((m) => {
+      THEME_KEYS.forEach((k) => { if (o[m] && thHexOk(o[m][k])) customTheme[m][k] = o[m][k]; });
+    });
+  } catch (e) { /* broken or blocked storage: stay on the built-in theme */ }
+}
+
+function pickPreset(id) {
+  if (id === 'default') {
+    customTheme.on = false; customTheme.preset = 'default';
+    customTheme.dark = Object.assign({}, THEME_DEFAULTS.dark);
+    customTheme.light = Object.assign({}, THEME_DEFAULTS.light);
+  } else {
+    const p = THEME_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    customTheme.on = true; customTheme.preset = id;
+    customTheme.dark = Object.assign({}, p.dark);
+    customTheme.light = Object.assign({}, p.light);
+  }
+  saveCustomTheme();
+  applyCustomTheme();
+}
+
+function renderThemeChips() {
+  const box = $('themePresets');
+  if (!box) return;
+  const mode = currentMode();
+  box.innerHTML = '';
+  [{ id: 'default', name: 'Bawaan', c: THEME_DEFAULTS[mode] }].concat(THEME_PRESETS.map((p) => ({ id: p.id, name: p.name, c: p[mode] }))).forEach((p) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'theme-chip' + (customTheme.preset === p.id && (p.id === 'default') === !customTheme.on ? ' on' : '');
+    b.setAttribute('aria-pressed', b.classList.contains('on') ? 'true' : 'false');
+    const dots = document.createElement('span');
+    dots.className = 'theme-dots';
+    [p.c.bg, p.c.accent].forEach((col) => { const i = document.createElement('i'); i.style.background = col; dots.appendChild(i); });
+    b.appendChild(dots);
+    b.appendChild(document.createTextNode(tr(p.name)));
+    b.addEventListener('click', () => pickPreset(p.id));
+    box.appendChild(b);
+  });
+}
+
+function syncSettingsUI() {
+  if (!$('themePresets')) return;
+  const mode = currentMode(), c = customTheme[mode];
+  renderThemeChips();
+  document.querySelectorAll('[data-th]').forEach((inp) => { inp.value = c[inp.dataset.th]; });
+  $('themeWarn').hidden = !customTheme.on || thContrast(c.bg, c.text) >= 3;
+}
+
+const settingsUI = { prev: null };
+
+function openSettings() {
+  setMenu(false);
+  settingsUI.prev = document.activeElement;
+  syncSettingsUI();
+  $('settingsModal').hidden = false;
+  $('settingsClose').focus();
+}
+
+function closeSettings() {
+  if ($('settingsModal').hidden) return;
+  $('settingsModal').hidden = true;
+  const p = settingsUI.prev;
+  if (p && p.focus) { try { p.focus(); } catch (e) { /* ignore */ } }
+}
+
+function initSettings() {
+  loadCustomTheme();
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('menuSettingsBtn').addEventListener('click', openSettings);
+  $('settingsClose').addEventListener('click', closeSettings);
+  $('settingsModal').addEventListener('mousedown', (e) => { if (e.target === $('settingsModal')) closeSettings(); });
+  document.addEventListener('keydown', (e) => {
+    if ($('settingsModal').hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSettings(); return; }
+    if (e.key !== 'Tab') return;
+    const f = Array.from($('settingsModal').querySelectorAll('input, select, button')).filter((x) => !x.disabled);
+    if (!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && (i === f.length - 1 || i < 0)) { e.preventDefault(); f[0].focus(); }
+  }, true);
+  document.querySelectorAll('[data-th]').forEach((inp) => inp.addEventListener('input', () => {
+    const mode = currentMode();
+    customTheme[mode][inp.dataset.th] = inp.value;
+    customTheme.on = true; customTheme.preset = 'custom';
+    saveCustomTheme();
+    applyCustomTheme();
+  }));
+  applyCustomTheme();
 }
 
 /* =========================================================================
@@ -1494,4 +1678,5 @@ initPaintTab();
 initPlayerTab();
 initFontTab();
 initPrefs();
+initSettings();
 initNotice();
