@@ -2,7 +2,7 @@
 
 /* Spritesheet Studio v2.7.9 - paint: Paint Sprite (layers, lasso, smart split, colour wheel)
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 3 of 5. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
+   Part 3 of 6. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
 /* =========================================================================
    PAINT SPRITE: the sprite fills the screen; a compact toolbar floats on top (categories:

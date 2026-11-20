@@ -2,7 +2,7 @@
 
 /* Spritesheet Studio v2.7.8 - storage: Save / Load with folders, recovery mode, IndexedDB (1 GB limit)
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 5 of 5. Classic script: shares one global scope with the other js/ files and must load LAST
+   Part 5 of 6. Classic script: shares one global scope with the other js/ files and must load after the first four (ddg.js loads after it)
    (it uses state, player, paint and fc from the other files, and extends the EN table). */
 
 /* =========================================================================
@@ -19,13 +19,16 @@ const DB_VERSION = 1;
 const GB = 1024 * 1024 * 1024;
 const LIMIT_DEFAULT = 1 * GB;
 const LIMIT_CHOICES = [1, 2, 4, 8, 16];            // in GB; anything above 1 GB needs the user's permission
-const ST_TYPES = ['animation', 'spritesheet', 'font'];
-const ST_FOLDER = { animation: 'fd-animation', spritesheet: 'fd-spritesheet', font: 'fd-font' };
-const ST_LABEL = { animation: 'Animasi', spritesheet: 'Spritesheet', font: 'Font' };
+const ST_TYPES = ['animation', 'spritesheet', 'font', 'ddg'];
+const ST_FOLDER = { animation: 'fd-animation', spritesheet: 'fd-spritesheet', font: 'fd-font', ddg: 'fd-ddg' };
+const ST_LABEL = { animation: 'Animasi', spritesheet: 'Spritesheet', font: 'Font', ddg: 'Dokumen DDG' };
 const AUTOSAVE_DELAY = 4000;
 const FC_DEFAULT_NAME = 'MyPixelFont';
 
 Object.assign(EN, {
+  'Dokumen DDG': 'DDG Documents', 'Simpan Dokumen DDG': 'Save DDG Document', '{n} kata': '{n} words',
+  'Dokumen masih kosong': 'The document is still empty',
+  'Ganti dokumen yang sekarang?': 'Replace the current document?',
   'Berkas': 'Files', 'Simpan & Buka': 'Save / Load',
   'Baru di v2.7.8': "What's new in v2.7.8",
   'Simpan dan buka pekerjaanmu: animasi, spritesheet, dan font tersimpan di browser dalam folder. Ada Mode Pemulihan yang menyimpan otomatis, jadi pekerjaan yang belum sempat disimpan bisa dikembalikan. Batas penyimpanan 1 GB; bisa dinaikkan dengan izinmu.': 'Save and open your work: animations, spritesheets and fonts are kept in the browser, in folders. Recovery Mode saves automatically, so work you did not get to save can be brought back. The storage limit is 1 GB; you can raise it with your permission.',
@@ -218,6 +221,7 @@ function ssDialog(o) {
       } else if (f.kind === 'check') {
         node = document.createElement('input');
         node.type = 'checkbox';
+        node.checked = !!f.value;
         lab.appendChild(node);
         lab.appendChild(document.createTextNode(' ' + tr(f.label)));
       } else {
@@ -660,12 +664,14 @@ function describe(type, payload) {
     return { frames: payload.frames.length, w: f ? f.w : 0, h: f ? f.h : 0 };
   }
   if (type === 'spritesheet') return { w: payload.w, h: payload.h, count: payload.meta ? payload.meta.count : 0 };
+  if (type === 'ddg') return { words: payload.words || 0, chars: payload.chars || 0 };
   return { glyphs: payload.glyphs.length, w: payload.w, h: payload.h };
 }
 function infoText(it) {
   const i = it.info || {};
   if (it.type === 'animation') return fmt('{n} frame', { n: i.frames }) + ' \u00b7 ' + i.w + '\u00d7' + i.h;
   if (it.type === 'spritesheet') return i.w + '\u00d7' + i.h + ' px' + (i.count ? ' \u00b7 ' + fmt('{n} frame', { n: i.count }) : '');
+  if (it.type === 'ddg') return fmt('{n} kata', { n: i.words || 0 });
   return fmt('{n} huruf digambar', { n: i.glyphs }) + ' \u00b7 ' + i.w + '\u00d7' + i.h;
 }
 
@@ -683,6 +689,11 @@ async function prepare(type, progress) {
     if (!state.exportSheet) { showToast('Belum ada spritesheet. Bangun dulu di tab Spritesheet atau Gabung.', 3200); return null; }
     const payload = await packSheet();
     return { payload, thumb: thumbOf(state.exportSheet), sig: state.exportSource === 'merge' ? sigMerge() : null, part: state.exportSource === 'merge' ? 'merge' : null };
+  }
+  if (type === 'ddg') {
+    if (ddgEmpty()) { showToast('Dokumen masih kosong'); return null; }
+    const payload = ddgPayload();
+    return { payload, thumb: ddgThumb(), sig: null, part: null, size: ddgPayloadSize(payload) };
   }
   if (!fontHasContent()) { showToast('Font masih sama dengan font klasik'); return null; }
   return { payload: packFont(), thumb: fontThumb(), sig: sigFont(), part: 'font' };
@@ -737,7 +748,7 @@ async function saveCurrent(type, overwriteItem) {
     const prep = await prepare(type, busy.set);
     busy.end(); busy = null;
     if (!prep) return;
-    const size = payloadSize(prep.payload);
+    const size = prep.size !== undefined ? prep.size : payloadSize(prep.payload);
     if (!(await ensureRoom(size, target ? target.size || 0 : 0, true))) return;
     const now = Date.now();
     const meta = {
@@ -747,6 +758,7 @@ async function saveCurrent(type, overwriteItem) {
     };
     await writeItem(meta, prep.payload);
     markSaved(prep);
+    if (type === 'ddg') ddgMarkSaved(meta);
     await loadLibrary();
     if (!overwriteItem) $('saveName').value = '';
     showToast(target ? 'Diganti' : 'Tersimpan');
@@ -786,6 +798,10 @@ async function openItem(it) {
       busy.end(); busy = null;
       applyAnimation(frames, d.settings, mode);
       if (mode === 'replace') rec.saved.animation = sigAnimation();
+    } else if (it.type === 'ddg') {
+      if (!(await ddgConfirmReplace())) return;
+      ddgLoadItem(d, it);
+      document.querySelector('.tab-btn[data-tab="ddg"]').click();
     } else if (it.type === 'font') {
       if (fontHasContent() && sigFont() !== rec.saved.font) {
         const r = await ssDialog({
@@ -1212,6 +1228,7 @@ async function initStorage() {
   $('saveAnimBtn').addEventListener('click', () => saveCurrent('animation'));
   $('saveSheetBtn').addEventListener('click', () => saveCurrent('spritesheet'));
   $('saveFontBtn').addEventListener('click', () => saveCurrent('font'));
+  $('saveDdgBtn').addEventListener('click', () => saveCurrent('ddg'));
   $('fmUp').addEventListener('click', () => { lib.cwd = null; renderFiles(); });
   $('fmNewFolder').addEventListener('click', newFolder);
   $('storageRaiseBtn').addEventListener('click', () => openLimitDialog(0));

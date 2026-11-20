@@ -1,8 +1,8 @@
 'use strict';
 
-/* Spritesheet Studio v2.7.9 - extras: Player, what's-new notice, language, Font Creator, init
+/* Spritesheet Studio v2.8.0 - extras: Player, what's-new notice, language, Font Creator, init
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 4 of 4. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
+   Part 4 of 6. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
 /* =========================================================================
    PLAYER: plays the frames as an animation (it shows the flattened picture of every frame)
@@ -390,8 +390,8 @@ const EN = {
 };
 
 Object.assign(EN, {
-  'Baru di v2.7.9': "What's new in v2.7.9",
-  'Onion skin di Paint Sprite menampilkan frame sebelum dan sesudahnya sebagai bayangan samar, jadi gerakan lebih mudah digambar. Warna tema bisa diatur sendiri. Tombol Pengaturan di bar atas menyatukan tema, mode Terang / Gelap, dan bahasa.': 'Onion skin in Paint Sprite shows the frames before and after the current one as a faint shadow, so motion is easier to draw. Theme colors can be set your own way. The Settings button in the top bar brings theme, Light / Dark mode and language together.',
+  'Baru di v2.8.0': "What's new in v2.8.0",
+  'Tab baru DDG Editor (Document Design Game): editor teks untuk dokumen desain game dengan ukuran teks, ketebalan font, daftar, daftar centang, tabel, kotak catatan, dan templat GDD. Tersimpan di IndexedDB dan bisa diunduh sebagai HTML, Markdown, teks, atau cadangan.': 'New DDG Editor tab (Document Design Game): a text editor for game design documents with text size, font weight, lists, checklists, tables, note boxes and GDD templates. Saved in IndexedDB and downloadable as HTML, Markdown, text or a backup.',
   'Onion skin': 'Onion skin', 'Aktifkan onion skin': 'Turn on onion skin',
   'Menampilkan frame di sekitar frame yang sedang digambar sebagai bayangan samar. Hanya tampilan: tidak ikut ke spritesheet atau export.': 'Shows the frames around the one you are drawing as a faint shadow. Display only: it is not part of the spritesheet or any export.',
   'Frame sebelumnya (': 'Frames before (', 'Frame sesudahnya (': 'Frames after (', 'Opasitas bayangan (': 'Shadow opacity (',
@@ -415,7 +415,7 @@ function applyLang() {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = walker.nextNode())) {
-    if (node.parentNode.closest('script')) continue;
+    if (node.parentNode.closest('script, .ddg-doc')) continue;
     if (node.__id === undefined) {
       const k = node.nodeValue.trim();
       if (!k || EN[k] === undefined) continue;

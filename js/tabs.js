@@ -2,7 +2,7 @@
 
 /* Spritesheet Studio v2.7.5 - tabs: frame lists, import, encoders, export, merge, frame size, event wiring
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 2 of 4. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
+   Part 2 of 6. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
 /* =========================================================================
    FRAME LIST RENDERING (import strip + editor grid)
@@ -1358,6 +1358,7 @@ function initTabs() {
       if (btn.dataset.tab === 'export') updateExportUI();
       if (btn.dataset.tab === 'player') renderPlayer(); else if (player.playing) stopPlayer();
       if (btn.dataset.tab === 'font') { fcSyncSettings(); fcRenderAll(false); }
+      if (btn.dataset.tab === 'ddg' && typeof ddgOnShow === 'function') ddgOnShow();
     });
   });
 }
