@@ -1,4 +1,4 @@
-/* Spritesheet Studio v2.7.9 — plain: system font, cool dark grey, one green accent, thin lines. */
+/* Spritesheet Studio v2.8.0 — plain: system font, cool dark grey, one green accent, thin lines. */
 :root, :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #14171a; --side: #101316; --panel: #1a1e22; --soft: #232830; --line: #2d333b;
@@ -399,3 +399,47 @@ body.smooth .fc-stage canvas, body.smooth .fc-cell canvas, body.smooth .fc-previ
 .onion-colors { display: flex; gap: 16px; margin: 4px 0 10px; }
 .onion-colors .field { flex-direction: row; align-items: center; gap: 8px; }
 .paint-pop .checkbox-field { margin-bottom: 6px; font-size: 14px; }
+
+/* DDG Editor (v2.8.0). The look of the document itself lives in js/ddg.js (DDG_DOC_CSS) so it matches the HTML export. */
+.ddg-save { margin: 0 0 10px; }
+.ddg-save.dirty { color: var(--accent); }
+.ddg-toolbar { position: sticky; top: var(--topbar-h, 52px); z-index: 20; display: flex; flex-direction: column; gap: 4px; padding: 6px; margin: 0 0 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.ddg-row { display: flex; align-items: center; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: 2px; }
+.ddg-row > * { flex: 0 0 auto; }
+.ddg-sep { width: 1px; height: 22px; background: var(--line); margin: 0 3px; }
+.ddg-btn { position: relative; min-width: 34px; height: 34px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 0; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--text); font-size: 14px; cursor: pointer; touch-action: manipulation; }
+.ddg-btn:hover { background: var(--soft); }
+.ddg-btn.on { background: var(--accent); color: var(--on-accent); }
+.ddg-btn svg { width: 18px; height: 18px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ddg-color { flex-direction: column; justify-content: center; line-height: 1; overflow: hidden; }
+.ddg-color-t { font-weight: 700; font-size: 14px; }
+.ddg-color-sw { display: block; width: 18px; height: 4px; margin-top: 2px; border-radius: 1px; border: 1px solid var(--line); }
+.ddg-color input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
+.ddg-sel, .ddg-num { height: 34px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 0 6px; font-size: 13px; }
+.ddg-sel { max-width: 150px; }
+.ddg-num { width: 58px; text-align: center; }
+.ddg-sel:focus, .ddg-num:focus { outline: none; border-color: var(--accent); }
+.ddg-ctx { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.ddg-ctx-grp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ddg-outline { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.ddg-outline summary { cursor: pointer; padding: 8px 12px; font-size: 14px; font-weight: 600; }
+.ddg-outline-list { display: flex; flex-direction: column; padding: 0 8px 8px; max-height: 220px; overflow-y: auto; }
+.ddg-outline-list .hint { margin: 4px; }
+.ddg-ol { text-align: left; border: 0; background: none; color: var(--text); padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ddg-ol:hover { background: var(--soft); }
+.ddg-ol-h2 { padding-left: 18px; }
+.ddg-ol-h3 { padding-left: 30px; font-size: 13px; }
+.ddg-ol-h4 { padding-left: 42px; font-size: 13px; color: var(--dim); }
+.ddg-stage { padding: 14px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; overflow-x: hidden; }
+#ddgEditor { box-sizing: border-box; min-height: 60vh; margin: 0 auto; padding: 30px 34px; border-radius: 3px; box-shadow: 0 1px 6px rgba(0, 0, 0, .22); outline: none; }
+#ddgEditor:focus { box-shadow: 0 0 0 2px var(--accent), 0 1px 6px rgba(0, 0, 0, .22); }
+#ddgEditor ::selection { background: rgba(80, 140, 255, .35); }
+.ddg-count { margin: 8px 0 6px; }
+.ddg-pref { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 520px) {
+  .ddg-stage { padding: 6px; }
+  #ddgEditor { padding: 18px 14px; min-height: 50vh; }
+}
+@media (min-width: 700px) {
+  .ddg-row { flex-wrap: wrap; overflow-x: visible; }
+}

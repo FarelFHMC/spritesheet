@@ -2,6 +2,27 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.8.0 — 2026-11-20
+### Ditambah
+- **DDG Editor** (Document Design Game): tab baru berisi editor teks yang dibuat khusus untuk dokumen desain game.
+  - **Format teks:** gaya (*Paragraf*, *Judul 1–4*, *Kutipan*), jenis font, **ukuran teks** dalam px (kolom angka dan A− / A+), **ketebalan font** (300–900), jarak baris, tebal / miring / garis bawah / coret, warna teks, warna sorot, dan rata teks. Pada teks yang dipilih, perubahan berlaku untuk pilihan itu; kalau hanya ada kursor, berlaku untuk paragraf saat ini.
+  - **Daftar:** poin, angka, dan **daftar centang** (ketuk kotaknya untuk mencentang), geser masuk / keluar, serta Tab / Shift+Tab di dalam daftar.
+  - **Blok desain game:** **tabel** (dengan tombol *+ / − Baris* dan *+ / − Kolom* yang muncul saat kursor ada di dalam tabel), **kotak catatan** berwarna (*Catatan*, *Ide*, *Mekanik*, *Risiko*, *Tugas*), **gambar** (file, tempel, atau seret; pixel art kecil tetap tajam), tautan, dan garis pemisah.
+  - **Templat:** **GDD Lengkap**, **Satu halaman**, dan **Lembar karakter / item** (ganti dokumen atau tambahkan di akhir).
+  - **Daftar isi** dari judul-judulnya (ketuk untuk melompat) dan penghitung kata / karakter / waktu baca.
+  - **Pengaturan Dokumen:** ukuran teks dasar, jarak baris, lebar halaman (Penuh / Lebar / Sempit), dan kertas (Terang / Gelap), tersimpan bersama tiap dokumen.
+  - **Simpan di IndexedDB** (database yang sama dengan Simpan & Buka): **Simpan** (Ctrl+S), **Simpan salinan**, dan daftar dokumen tersimpan dengan Buka / Ubah nama / Hapus. Dokumen masuk ke folder baru **Dokumen DDG**, dan Simpan & Buka punya tombol baru **Simpan Dokumen DDG**, jadi Timpa dan Buka juga berfungsi di sana. **Draf** disimpan otomatis saat mengetik dan dipulihkan setelah halaman dimuat ulang.
+  - **Unduh** sebagai **HTML** (mandiri, tampilannya sama dengan editor), **Markdown**, **Teks**, **Cadangan** (.ddg.json), atau **Cetak / PDF**. **Buka dari berkas** membaca cadangan, HTML, .md, atau .txt.
+  - Semua yang datang dari luar (berkas yang dibuka, isi web yang ditempel, data tersimpan) dibersihkan dulu: skrip, event handler, gambar dari internet, dan tautan berbahaya dibuang, dan teks tempelan kehilangan warna serta fontnya.
+### Diubah
+- Versi sekarang 2.8.0 dan pemberitahuan "Baru di ..." menampilkan DDG Editor.
+- Simpan & Buka: dialog sekarang mendukung kotak centang yang awalnya tercentang (dipakai dialog tabel), dan jenis berkas punya entri keempat (**Dokumen DDG**).
+- Ganti bahasa (ID / EN) tidak pernah mengubah isi dokumen DDG, hanya teks bawaan aplikasi.
+- Kode: `js/ddg.js` baru (dimuat paling akhir, setelah `storage.js`); perubahan kecil di `index.html`, `style.css`, `js/core.js`, `js/tabs.js` (pengait tab), `js/extras.js` (teks pemberitahuan dan pengecualian bahasa), dan `js/storage.js` (jenis berkas baru). Komentar header kini tertulis "Part N of 6".
+### Batasan
+- Urungkan / Ulangi mencakup pengetikan dan format, bukan tombol baris / kolom tabel atau mencentang kotak.
+- Ketebalan font di antara Normal dan Tebal hanya terlihat kalau font yang dipilih memilikinya; banyak font sistem tidak.
+
 ## 2.7.9 — 2026-11-12
 ### Ditambah
 - **Onion skinning** di Paint Sprite. Frame sebelum dan sesudah frame yang sedang digambar tampil sebagai bayangan samar *di belakangnya*, jadi kamu bisa melihat dari mana gerakan datang dan ke mana perginya.

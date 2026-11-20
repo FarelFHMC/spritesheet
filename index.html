@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="author" content="Farelfhmc (Studio Fhilion)">
-<meta name="description" content="Spritesheet Studio v2.7.9 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
+<meta name="description" content="Spritesheet Studio v2.8.0 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <script>
 /* set the theme before the page paints (saved choice, else the system setting), then the custom colors if they are on */
@@ -29,7 +29,7 @@
 <header class="topbar" id="topbar">
   <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span class="bars" aria-hidden="true"></span></button>
   <span class="page-title" id="menuCurrent">Import</span>
-  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.7.9</span></span>
+  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.8.0</span></span>
   <button class="menu-btn settings-btn" id="settingsBtn" type="button" aria-haspopup="dialog" aria-label="Pengaturan" title="Pengaturan"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
   <div class="menu" id="menu">
@@ -48,6 +48,7 @@
             <button class="tab-btn" data-tab="paint" role="tab" aria-selected="false">Paint Sprite</button>
             <button class="tab-btn" data-tab="player" role="tab" aria-selected="false">Player</button>
             <button class="tab-btn" data-tab="font" role="tab" aria-selected="false">Font Creator</button>
+            <button class="tab-btn" data-tab="ddg" role="tab" aria-selected="false">DDG Editor</button>
           </div>
         </div>
         <div class="nav-group">
@@ -82,8 +83,8 @@
   <!-- ===================== WHAT'S NEW NOTICE ===================== -->
   <div class="notice" id="newsNotice" role="note" hidden>
     <div class="notice-body">
-      <p class="notice-title">Baru di v2.7.9</p>
-      <p class="notice-text">Onion skin di Paint Sprite menampilkan frame sebelum dan sesudahnya sebagai bayangan samar, jadi gerakan lebih mudah digambar. Warna tema bisa diatur sendiri. Tombol Pengaturan di bar atas menyatukan tema, mode Terang / Gelap, dan bahasa.</p>
+      <p class="notice-title">Baru di v2.8.0</p>
+      <p class="notice-text">Tab baru DDG Editor (Document Design Game): editor teks untuk dokumen desain game dengan ukuran teks, ketebalan font, daftar, daftar centang, tabel, kotak catatan, dan templat GDD. Tersimpan di IndexedDB dan bisa diunduh sebagai HTML, Markdown, teks, atau cadangan.</p>
       <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
     </div>
     <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
@@ -649,6 +650,87 @@
     </div>
   </section>
 
+  <!-- ===================== DDG EDITOR ===================== -->
+  <section class="panel" id="panel-ddg" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">DDG Editor</h2>
+      <p class="hint">Editor teks untuk dokumen desain game (Game Design Document): atur ukuran dan ketebalan teks, daftar, tabel, dan kotak catatan. Tersimpan di browser dan bisa diunduh.</p>
+      <label class="field ddg-name">Judul dokumen
+        <input type="text" id="ddgName" maxlength="60" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-sm" id="ddgNewBtn" type="button">Baru</button>
+        <button class="btn btn-primary btn-sm" id="ddgSaveBtn" type="button">Simpan</button>
+        <button class="btn btn-secondary btn-sm" id="ddgCopyBtn" type="button">Simpan salinan</button>
+        <button class="btn btn-secondary btn-sm" id="ddgTplBtn" type="button">Templat&hellip;</button>
+      </div>
+      <p class="hint ddg-save" id="ddgSave"></p>
+      <div class="ddg-toolbar" id="ddgToolbar" role="toolbar" aria-label="Alat format">
+        <div class="ddg-row" id="ddgRow1"></div>
+        <div class="ddg-row" id="ddgRow2"></div>
+        <div class="ddg-ctx" id="ddgCtx" hidden></div>
+      </div>
+      <input type="file" id="ddgImgFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+      <details class="ddg-outline">
+        <summary>Daftar isi</summary>
+        <div id="ddgOutline" class="ddg-outline-list"></div>
+      </details>
+      <div class="ddg-stage">
+        <div class="ddg-doc w-wide" id="ddgEditor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Isi dokumen"></div>
+      </div>
+      <p class="hint ddg-count" id="ddgCount"></p>
+      <p class="hint">Tanpa teks yang dipilih, ukuran, ketebalan, dan jarak baris berlaku untuk paragraf tempat kursor berada. Ketuk kotak di daftar centang untuk mencentangnya.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Pengaturan Dokumen</h2>
+      <div class="grid-2">
+        <label class="field">Ukuran teks dasar (px)
+          <input type="number" id="ddgBaseSize" min="10" max="40" step="1">
+        </label>
+        <label class="field">Jarak baris
+          <select id="ddgBaseLine">
+            <option value="1.2">1.2</option><option value="1.4">1.4</option><option value="1.6">1.6</option>
+            <option value="1.8">1.8</option><option value="2">2</option><option value="2.4">2.4</option>
+          </select>
+        </label>
+      </div>
+      <div class="ddg-pref">
+        <span class="opt-cap">Lebar halaman</span>
+        <div class="seg" role="group" aria-label="Lebar halaman">
+          <button type="button" data-ddgw="full">Penuh</button><button type="button" data-ddgw="wide" class="on">Lebar</button><button type="button" data-ddgw="narrow">Sempit</button>
+        </div>
+      </div>
+      <div class="ddg-pref">
+        <span class="opt-cap">Kertas</span>
+        <div class="seg" role="group" aria-label="Kertas">
+          <button type="button" data-ddgpaper="light" class="on">Terang</button><button type="button" data-ddgpaper="dark">Gelap</button>
+        </div>
+      </div>
+      <p class="hint">Pengaturan ini ikut tersimpan bersama dokumen dan ikut ke berkas unduhan.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Unduh &amp; Buka</h2>
+      <p class="hint">Unduh sebagai berkas di perangkatmu. Cadangan (.json) bisa dibuka lagi di sini dengan utuh.</p>
+      <div class="btn-col">
+        <button class="btn btn-primary" id="ddgDlHtml" type="button">Unduh HTML</button>
+        <button class="btn btn-primary" id="ddgDlMd" type="button">Unduh Markdown</button>
+        <button class="btn btn-primary" id="ddgDlTxt" type="button">Unduh Teks</button>
+        <button class="btn btn-primary" id="ddgDlJson" type="button">Unduh Cadangan</button>
+        <button class="btn btn-secondary" id="ddgPrintBtn" type="button">Cetak / PDF</button>
+        <button class="btn btn-secondary" id="ddgOpenBtn" type="button">Buka dari berkas&hellip;</button>
+      </div>
+      <input type="file" id="ddgImportFile" accept=".json,.html,.htm,.md,.markdown,.txt" hidden>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Dokumen DDG Tersimpan</h2>
+      <p class="hint">Dokumen yang kamu simpan muncul di sini dan juga di folder Dokumen DDG di tab Simpan &amp; Buka.</p>
+      <div class="fm-list" id="ddgList"></div>
+    </div>
+  </section>
+
   <!-- ===================== MERGE ===================== -->
   <section class="panel" id="panel-merge" role="tabpanel">
     <div class="card">
@@ -815,6 +897,7 @@
           <button class="btn btn-primary" id="saveAnimBtn" type="button">Simpan Animasi</button>
           <button class="btn btn-primary" id="saveSheetBtn" type="button">Simpan Spritesheet</button>
           <button class="btn btn-primary" id="saveFontBtn" type="button">Simpan Font</button>
+          <button class="btn btn-primary" id="saveDdgBtn" type="button">Simpan Dokumen DDG</button>
         </div>
         <p class="hint fm-hint" id="saveHint"></p>
       </div>
@@ -847,7 +930,7 @@
 </main>
 
 <footer class="app-footer">
-  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.7.9 &middot; MIT
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.8.0 &middot; MIT
 </footer>
 
 
@@ -895,5 +978,6 @@
 <script src="js/paint.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/storage.js"></script>
+<script src="js/ddg.js"></script>
 </body>
 </html>

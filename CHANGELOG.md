@@ -2,6 +2,27 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.8.0 — 2026-11-20
+### Added
+- **DDG Editor** (Document Design Game): a new tab with a text editor made for game design documents.
+  - **Text formatting:** style (*Paragraph*, *Heading 1–4*, *Quote*), font family, **text size** in px (number field and A− / A+), **font weight** (300–900), line spacing, bold / italic / underline / strikethrough, text color, highlight color and alignment. Over a selection the change applies to the selection; with only the cursor it applies to the current paragraph.
+  - **Lists:** bullet, numbered and **checklist** (tap the box to tick it), indent / outdent, and Tab / Shift+Tab inside lists.
+  - **Game design blocks:** **tables** (with *+ / − Row* and *+ / − Column* buttons that appear while the cursor is in a table), colored **note boxes** (*Note*, *Idea*, *Mechanic*, *Risk*, *Task*), **images** (file, paste or drop; small pixel art stays sharp), links and a divider.
+  - **Templates:** **Full GDD**, **One-page GDD** and **Character / item sheet** (replace the document or add at the end).
+  - **Outline** of the headings (tap to jump) and a word / character / reading-time counter.
+  - **Document Settings:** base text size, line spacing, page width (Full / Wide / Narrow) and paper (Light / Dark), saved with each document.
+  - **Save in IndexedDB** (the same database as Save / Load): **Save** (Ctrl+S), **Save a copy**, and a list of saved documents with Open / Rename / Delete. Documents live in a new **DDG Documents** folder, and Save / Load has a new **Save DDG Document** button, so Overwrite and Open work there too. A **draft** is autosaved while typing and restored after a refresh.
+  - **Download** as **HTML** (self-contained, same look as the editor), **Markdown**, **Text**, a **Backup** (.ddg.json) or **Print / PDF**. **Open from file** reads a backup, HTML, .md or .txt.
+  - Everything that comes from outside (opened files, pasted web content, saved data) is cleaned first: scripts, event handlers, remote images and unsafe links are removed, and pasted text loses its colors and fonts.
+### Changed
+- The version is now 2.8.0 and the "What's new" notice shows the DDG Editor.
+- Save / Load: the **Name / Folder** dialogs now support a field that starts ticked (used by the table dialog), and file types have a fourth entry (**DDG Documents**).
+- Language switch (ID / EN) never touches the text of a DDG document, only the app's own texts.
+- Source: new `js/ddg.js` (loads last, after `storage.js`); small changes in `index.html`, `style.css`, `js/core.js`, `js/tabs.js` (tab hook), `js/extras.js` (notice text and language skip) and `js/storage.js` (new file type). Header comments now say "Part N of 6".
+### Known limits
+- Undo / Redo covers typing and formatting, not the table row / column buttons or ticking a checkbox.
+- Font weights between Regular and Bold only show if the chosen font has them; many system fonts do not.
+
 ## 2.7.9 — 2026-11-12
 ### Added
 - **Onion skinning** in Paint Sprite. The frames before and after the one you are drawing appear as a faint shadow *behind* it, so you can see where the motion comes from and where it goes.
