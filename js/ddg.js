@@ -1,6 +1,6 @@
 'use strict';
 
-/* Spritesheet Studio v2.8.0 - ddg: DDG Editor (Document Design Game)
+/* Spritesheet Studio v2.8.1 - ddg: DDG Editor (Document Design Game)
    A rich text editor for game design documents: text size, font weight, lists, checklists, tables,
    note boxes, images. Saves in IndexedDB (same database as Save / Load) and downloads as HTML,
    Markdown, plain text or a JSON backup.

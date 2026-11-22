@@ -1,6 +1,6 @@
 'use strict';
 
-/* Spritesheet Studio v2.8.0 - extras: Player, what's-new notice, language, Font Creator, init
+/* Spritesheet Studio v2.8.1 - extras: Player, what's-new notice, language, Font Creator, init
    Made by Farelfhmc - Studio Fhilion. MIT License.
    Part 4 of 6. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
@@ -326,6 +326,14 @@ const EN = {
   'Maksimal 12 spritesheet': 'At most 12 spritesheets',
   'Gagal membaca gambar': 'Could not read the image',
   'Hasil terlalu besar (maks. 16384 px per sisi)': 'The result is too big (max 16384 px per side)',
+  'Sembunyikan toolbar': 'Hide toolbar', 'Tampilkan toolbar': 'Show toolbar', 'Sembunyikan / tampilkan toolbar': 'Hide / show toolbar',
+  'Gambar terlalu besar (maks. 16384 px per sisi)': 'The image is too big (max 16384 px per side)',
+  'Gambar terlalu besar (maks. 100 juta piksel)': 'The image is too big (max 100 million pixels)',
+  'Browser tidak bisa membuat gambar sebesar ini': 'The browser cannot make an image this big',
+  '{n} gambar dilewati': '{n} skipped',
+  'Spritesheet terlalu besar (maks. 16384 px per sisi). Kurangi kolom atau ukuran frame.': 'The spritesheet is too big (max 16384 px per side). Use fewer columns or a smaller frame size.',
+  'Spritesheet terlalu besar (maks. 100 juta piksel). Kurangi kolom atau ukuran frame.': 'The spritesheet is too big (max 100 million pixels). Use fewer columns or a smaller frame size.',
+  'Browser tidak bisa membuat spritesheet sebesar ini. Kurangi kolom atau ukuran frame.': 'The browser cannot make a spritesheet this big. Use fewer columns or a smaller frame size.',
   'Laso': 'Lasso', 'Mode laso': 'Lasso mode', 'Baru': 'New', 'Tambah': 'Add', 'Kurangi': 'Subtract',
   'Gambar area bebas dengan jari atau mouse. Aksi berlaku untuk layer yang dipilih.': 'Draw a free-hand area with your finger or mouse. Actions apply to the selected layer.',
   'Terpilih:': 'Selected:',

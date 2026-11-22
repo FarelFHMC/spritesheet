@@ -1,10 +1,10 @@
 'use strict';
 
-/* Spritesheet Studio v2.8.0 - core: state, helpers, GIF decoder, video frames, background removal, spritesheet builder
+/* Spritesheet Studio v2.8.1 - core: state, helpers, GIF decoder, video frames, background removal, spritesheet builder
    Made by Farelfhmc - Studio Fhilion. MIT License.
    Part 1 of 6. Classic script: shares one global scope with the other js/ files, so keep the load order from index.html. */
 
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.8.1';
 /* version of the "What's new" notice (the text in index.html); only change it when the notice text changes */
 const NOTICE_VERSION = '2.8.0';
 
@@ -208,17 +208,55 @@ function drawWithFit(ctx, sourceCanvas, sw, sh, dw, dh, mode) {
   }
 }
 
+/* Browsers cannot make a canvas of any size: about 16384 px a side at most (Safari on phones allows even less
+   in total), and a huge canvas can silently come out blank or crash the tab. So every canvas that comes from
+   outside (imported image, big sheet) is checked first and a clear message is shown instead. */
+const MAX_IMPORT_SIDE = 16384;
+const MAX_IMPORT_AREA = 100e6;                // pixels in all (about 400 MB of memory as RGBA)
+
+/* Makes a canvas and makes sure the browser really gave it. Throws 'canvas-side', 'canvas-area' or 'canvas-fail'. */
+function makeCheckedCanvas(w, h) {
+  if (!(w > 0 && h > 0)) throw new Error('canvas-fail');
+  if (w > MAX_IMPORT_SIDE || h > MAX_IMPORT_SIDE) throw new Error('canvas-side');
+  if (w * h > MAX_IMPORT_AREA) throw new Error('canvas-area');
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d');
+  if (!ctx) throw new Error('canvas-fail');
+  if (w * h > 4096 * 4096) {                    // only big canvases can fail quietly: write and read back the last pixel
+    let ok = false;
+    try {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(w - 1, h - 1, 1, 1);
+      ok = ctx.getImageData(w - 1, h - 1, 1, 1).data[3] === 255;
+      ctx.clearRect(w - 1, h - 1, 1, 1);
+    } catch (e) { ok = false; }
+    if (!ok) throw new Error('canvas-fail');
+  }
+  return c;
+}
+
+/* The toast text for an error from makeCheckedCanvas (or '' when the error is something else) */
+function canvasErrorText(e) {
+  const m = e && e.message;
+  if (m === 'canvas-side') return 'Gambar terlalu besar (maks. 16384 px per sisi)';
+  if (m === 'canvas-area') return 'Gambar terlalu besar (maks. 100 juta piksel)';
+  if (m === 'canvas-fail') return 'Browser tidak bisa membuat gambar sebesar ini';
+  return '';
+}
+
 function imageFileToCanvas(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth;
-      c.height = img.naturalHeight;
-      c.getContext('2d').drawImage(img, 0, 0);
+      try {
+        const c = makeCheckedCanvas(img.naturalWidth, img.naturalHeight);
+        c.getContext('2d').drawImage(img, 0, 0);
+        resolve(c);
+      } catch (e) { reject(e); }
       URL.revokeObjectURL(url);
-      resolve(c);
     };
     img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
     img.src = url;
@@ -758,9 +796,7 @@ function buildSpritesheet(canvases, settings) {
   const sheetW = margin * 2 + cols * frameW + Math.max(0, cols - 1) * padding;
   const sheetH = margin * 2 + rows * frameH + Math.max(0, rows - 1) * padding;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = sheetW;
-  canvas.height = sheetH;
+  const canvas = makeCheckedCanvas(sheetW, sheetH);           // throws 'canvas-side' / 'canvas-area' / 'canvas-fail' when too big
   const ctx = canvas.getContext('2d');
   setCrisp(ctx);
 

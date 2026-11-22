@@ -66,12 +66,14 @@ function addEmptyFrame(at) {
 async function addImageFiles(files) {
   const imgs = files.filter((f) => f.type && f.type.startsWith('image/'));
   if (!imgs.length) { showToast('Format file tidak didukung'); return; }
-  let added = 0;
+  let added = 0, big = '', skipped = 0;
   for (const f of imgs) {
-    try { state.frames.push({ id: nextId(), canvas: await imageFileToCanvas(f) }); added++; } catch (e) { /* skip unreadable file */ }
+    try { state.frames.push({ id: nextId(), canvas: await imageFileToCanvas(f) }); added++; }
+    catch (e) { skipped++; big = big || canvasErrorText(e); }   // too big or unreadable: skip this file
   }
   framesChanged();
-  showToast(added ? tr('{n} frame ditambahkan', added) : 'Format file tidak didukung');
+  if (added) showToast(skipped ? tr('{n} frame ditambahkan', added) + ' \u00b7 ' + tr('{n} gambar dilewati', skipped) : tr('{n} frame ditambahkan', added), skipped ? 3200 : 0);
+  else showToast(big || 'Format file tidak didukung', 3200);
 }
 
 /* Pointer-based drag to reorder, so it works with mouse, touch and pen (native HTML5 drag does not
@@ -692,7 +694,7 @@ function updateExportUI() {
 function ensureFreshSheet() {
   if (state.exportSource === 'frames' && state.sheetStale && state.lastSheetSettings) {
     if (!state.frames.length) { showToast('Tidak ada frame'); return false; }
-    buildAndShowSheet(state.lastSheetSettings);
+    if (!buildAndShowSheet(state.lastSheetSettings)) return false;
     showToast('Spritesheet diperbarui otomatis dari frame terbaru');
   }
   return !!state.exportSheet;
@@ -1051,7 +1053,7 @@ function renderMergeList() {
       const f = input.files[0];
       if (!f) return;
       try { it.canvas = await imageFileToCanvas(f); it.name = f.name; }
-      catch (e) { showToast('Gagal membaca gambar'); return; }
+      catch (e) { showToast(canvasErrorText(e) || 'Gagal membaca gambar', 3200); return; }
       renderMergeList();
     });
     const pick = document.createElement('button');
@@ -1113,16 +1115,14 @@ function runMerge() {
     const horiz = mode === 'horizontal';
     const rw = horiz ? sum('width') : max('width'), rh = horiz ? max('height') : sum('height');
     if (rw > MAX_CANVAS_SIDE || rh > MAX_CANVAS_SIDE) { showToast('Hasil terlalu besar (maks. 16384 px per sisi)', 3200); return; }
-    result = document.createElement('canvas');
-    result.width = rw; result.height = rh;
+    try { result = makeCheckedCanvas(rw, rh); } catch (e) { showToast(canvasErrorText(e), 3200); return; }
     const ctx = result.getContext('2d');
     let pos = 0;
     cs.forEach((c) => {
       if (horiz) { ctx.drawImage(c, pos, 0); pos += c.width; } else { ctx.drawImage(c, 0, pos); pos += c.height; }
     });
   } else if (mode === 'overlay') {
-    result = document.createElement('canvas');
-    result.width = max('width'); result.height = max('height');
+    try { result = makeCheckedCanvas(max('width'), max('height')); } catch (e) { showToast(canvasErrorText(e), 3200); return; }
     const ctx = result.getContext('2d');
     cs.forEach((c) => ctx.drawImage(c, 0, 0));
   } else {
@@ -1137,7 +1137,9 @@ function runMerge() {
     if (Math.min(colsOut, frames.length) * targetW > MAX_CANVAS_SIDE || Math.ceil(frames.length / colsOut) * targetH > MAX_CANVAS_SIDE) {
       showToast('Hasil terlalu besar (maks. 16384 px per sisi)', 3200); return;
     }
-    const built = buildSpritesheet(frames, { frameW: targetW, frameH: targetH, columns: colsOut, padding: 0, margin: 0 });
+    let built;
+    try { built = buildSpritesheet(frames, { frameW: targetW, frameH: targetH, columns: colsOut, padding: 0, margin: 0 }); }
+    catch (e) { showToast(canvasErrorText(e) || 'Hasil terlalu besar (maks. 16384 px per sisi)', 3200); return; }
     result = built.canvas;
     meta = built;
   }
@@ -1153,8 +1155,17 @@ function runMerge() {
 /* =========================================================================
    SPRITESHEET TAB
    ========================================================================= */
+/* Returns true when the sheet was built. A sheet bigger than the browser can draw gives a message and false. */
 function buildAndShowSheet(settings) {
-  const result = buildSpritesheet(state.frames.map((f) => f.canvas), settings);
+  let result;
+  try { result = buildSpritesheet(state.frames.map((f) => f.canvas), settings); }
+  catch (e) {
+    if (!canvasErrorText(e)) throw e;
+    showToast(e.message === 'canvas-area' ? 'Spritesheet terlalu besar (maks. 100 juta piksel). Kurangi kolom atau ukuran frame.'
+      : e.message === 'canvas-side' ? 'Spritesheet terlalu besar (maks. 16384 px per sisi). Kurangi kolom atau ukuran frame.'
+      : 'Browser tidak bisa membuat spritesheet sebesar ini. Kurangi kolom atau ukuran frame.', 4200);
+    return false;
+  }
   state.sheetMeta = result;
   state.exportSheet = result.canvas;
   state.exportSource = 'frames';
@@ -1167,18 +1178,19 @@ function buildAndShowSheet(settings) {
   $('sheetColsOut').textContent = result.cols;
   $('sheetFrameSize').textContent = result.frameW + '\u00d7' + result.frameH;
   $('sheetResolution').textContent = result.sheetW + '\u00d7' + result.sheetH;
+  return true;
 }
 
 function runBuildSheet() {
   if (state.frames.length === 0) { showToast('Tidak ada frame untuk disusun'); return; }
-  buildAndShowSheet({
+  const ok = buildAndShowSheet({
     frameW: parseInt($('sheetFrameW').value, 10) || 1,
     frameH: parseInt($('sheetFrameH').value, 10) || 1,
     columns: parseInt($('sheetColumns').value, 10) || 1,
     padding: parseInt($('sheetPadding').value, 10) || 0,
     margin: parseInt($('sheetMargin').value, 10) || 0
   });
-  showToast('Spritesheet dibangun');
+  if (ok) showToast('Spritesheet dibangun');
 }
 
 /* =========================================================================
@@ -1466,7 +1478,9 @@ function initImportTab() {
 
   $('addImageFrameBtn').addEventListener('click', async () => {
     if (!currentFile) return;
-    const canvas = await imageFileToCanvas(currentFile);
+    let canvas;
+    try { canvas = await imageFileToCanvas(currentFile); }
+    catch (e) { showToast(canvasErrorText(e) || 'Gagal membaca gambar', 3200); return; }
     state.frames.push({ id: nextId(), canvas });
     framesChanged();
     showToast('Frame ditambahkan');

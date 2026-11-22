@@ -1648,6 +1648,25 @@ function initPaintTab() {
   $('paintEmptyAddBtn').addEventListener('click', paintAddEmpty);
   $('paintPlayBtn').addEventListener('click', () => document.querySelector('.tab-btn[data-tab="player"]').click());
 
+  // phones: hide / show everything of the toolbar except its first row, so the whole sprite can be seen
+  $('paintBarToggle').addEventListener('click', () => {
+    const bar2 = $('paintToolsBar'), collapse = !bar2.classList.contains('collapsed');
+    bar2.classList.toggle('collapsed', collapse);
+    $('paintBarToggle').setAttribute('aria-expanded', collapse ? 'false' : 'true');
+    const key = collapse ? 'Tampilkan toolbar' : 'Sembunyikan toolbar';
+    $('paintBarToggle')['__id_aria-label'] = key;                // keeps the EN / ID switch in step
+    $('paintBarToggle').setAttribute('aria-label', tr(key));
+    if (collapse && !paint.xf) closePaintPops();
+  });
+
+  // frame strip: a mouse wheel scrolls it sideways (the strip itself scrolls with a finger or a trackpad)
+  $('paintFrameStrip').addEventListener('wheel', (e) => {
+    const st = e.currentTarget;
+    if (e.ctrlKey || e.metaKey || st.scrollWidth <= st.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    st.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+
   // the bars change height (rows wrap, a category has a different second row): re-fit the sprite so it never overlaps them
   if (window.ResizeObserver) {
     let raf = 0, lastKey = '';
