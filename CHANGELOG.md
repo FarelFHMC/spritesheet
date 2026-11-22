@@ -2,6 +2,22 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.8.1 — 2026-11-22
+### Fixed
+- **Paint Sprite: the frame bar broke out of its box with many frames.** Once there were more than a certain number of frames, the bottom bar grew wider than the screen and the frames could not be scrolled. The bar now keeps its width and the frame strip scrolls sideways (swipe it, or use the mouse wheel), and the selected frame is still brought into view.
+- **Images that are too big no longer break the app.** Browsers cannot draw a canvas much bigger than 16384 px a side (phones allow even less in total), and before this a bigger image or sheet could come out blank, or stop the import without a word. Now:
+  - Importing an image (Import, Editor, drag and drop, Merge, opening a saved file) checks the size first. The limit is **16384 px per side** and **100 million pixels in all**. A bigger image is skipped with a clear message; in a batch, the other images are still added and the toast tells how many were skipped.
+  - **Build Spritesheet**, the automatic rebuild before Export, and **Merge** (all modes) check the size of the result and say so when it is too big (*use fewer columns or a smaller frame size*) instead of making an empty or broken sheet.
+  - Very large canvases are tested before use, so a browser that quietly refuses to make one is caught as well.
+### Fixed (visual)
+- **Paint Sprite: the tool panels covered the editor.** The panels that open from the toolbar (Lasso options, Fill, Brush, Layers, color wheel, Move / Rotate / Resize) could take almost the whole phone screen and hide the sprite. On phones:
+  - the panels are now at most about a third of the screen tall (they scroll inside), and the Lasso and Fill explanations are hidden to save room;
+  - the Lasso action buttons sit in two columns, and the color wheel and transform fields are more compact;
+  - a new **▲ / ▼** button at the end of the toolbar's top row hides everything under that row, so the whole sprite can be seen; tap it again to bring the toolbar back. The computer / tablet layout (tools docked on the left) is unchanged.
+### Changed
+- The version is now 2.8.1. The "What's new" notice is unchanged (it does not show again).
+- Source: `js/core.js` (size checks, `makeCheckedCanvas`), `js/tabs.js` (messages for big images and sheets, Merge), `js/paint.js` (toolbar button, wheel on the frame strip), `js/extras.js` (texts), `index.html` and `style.css`. README and Changelog updated. `js/ddg.js` and `js/storage.js` have no code changes.
+
 ## 2.8.0 — 2026-11-20
 ### Added
 - **DDG Editor** (Document Design Game): a new tab with a text editor made for game design documents.

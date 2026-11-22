@@ -2,6 +2,22 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.8.1 — 2026-11-22
+### Diperbaiki
+- **Paint Sprite: bar frame keluar dari kotaknya kalau frame banyak.** Setelah frame melebihi jumlah tertentu, bar di bawah melebar melewati layar dan frame tidak bisa digeser. Sekarang bar tetap pada lebarnya dan daftar frame bisa digeser ke samping (geser dengan jari, atau pakai roda mouse), dan frame yang dipilih tetap dibawa ke tengah layar.
+- **Gambar yang terlalu besar tidak lagi merusak aplikasi.** Browser tidak bisa menggambar kanvas yang jauh lebih besar dari 16384 px per sisi (ponsel bahkan lebih kecil secara keseluruhan), dan sebelumnya gambar atau sheet yang lebih besar bisa menghasilkan gambar kosong, atau impor berhenti tanpa pesan. Sekarang:
+  - Mengimpor gambar (Import, Editor, seret dan lepas, Gabung, membuka berkas tersimpan) mengecek ukurannya dulu. Batasnya **16384 px per sisi** dan **100 juta piksel secara keseluruhan**. Gambar yang lebih besar dilewati dengan pesan yang jelas; kalau banyak gambar sekaligus, yang lain tetap ditambahkan dan pesan menyebutkan berapa yang dilewati.
+  - **Bangun Spritesheet**, pembangunan ulang otomatis sebelum Export, dan **Gabung** (semua mode) mengecek ukuran hasilnya dan memberi tahu kalau terlalu besar (*kurangi kolom atau ukuran frame*), bukan membuat sheet kosong atau rusak.
+  - Kanvas yang sangat besar diuji dulu sebelum dipakai, jadi browser yang diam-diam menolak membuatnya juga terdeteksi.
+### Diperbaiki (tampilan)
+- **Paint Sprite: panel alat menutupi layar editor.** Panel yang terbuka dari toolbar (pengaturan Laso, Fill, Brush, Layer, lingkaran warna, Geser / Putar / Ubah ukuran) bisa memakai hampir seluruh layar ponsel dan menutupi sprite. Di ponsel:
+  - panel sekarang paling tinggi sekitar sepertiga layar (isinya bisa digulir), dan penjelasan Laso dan Fill disembunyikan untuk menghemat tempat;
+  - tombol aksi Laso tersusun dua kolom, dan lingkaran warna serta kolom transformasi lebih ringkas;
+  - tombol baru **▲ / ▼** di ujung baris atas toolbar menyembunyikan semua yang ada di bawah baris itu, supaya seluruh sprite terlihat; ketuk lagi untuk memunculkan toolbar. Tampilan komputer / tablet (alat menempel di kiri) tidak berubah.
+### Diubah
+- Versi sekarang 2.8.1. Pemberitahuan "Baru di ..." tidak berubah (tidak muncul lagi).
+- Kode: `js/core.js` (pengecekan ukuran, `makeCheckedCanvas`), `js/tabs.js` (pesan untuk gambar dan sheet besar, Gabung), `js/paint.js` (tombol toolbar, roda mouse di daftar frame), `js/extras.js` (teks), `index.html`, dan `style.css`. README dan Changelog diperbarui. `js/ddg.js` dan `js/storage.js` tidak ada perubahan kode.
+
 ## 2.8.0 — 2026-11-20
 ### Ditambah
 - **DDG Editor** (Document Design Game): tab baru berisi editor teks yang dibuat khusus untuk dokumen desain game.

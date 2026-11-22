@@ -443,3 +443,31 @@ body.smooth .fc-stage canvas, body.smooth .fc-cell canvas, body.smooth .fc-previ
 @media (min-width: 700px) {
   .ddg-row { flex-wrap: wrap; overflow-x: visible; }
 }
+
+/* ---- 2.8.1: Paint Sprite fixes ---- */
+/* The floating bars are grids: without minmax(0, 1fr) a long frame list stretched the bar past the screen
+   (the frames ran out of the box and could not be scrolled). Now the bar keeps its width and the strip scrolls. */
+.paint-tools-bar, .paint-frames-bar { grid-template-columns: minmax(0, 1fr); }
+.paint-float { min-width: 0; }
+.frames-row { min-width: 0; }
+.frames-row .frame-strip { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x; scrollbar-width: thin; padding-bottom: 6px; }
+.frames-row .frame-pick { scroll-margin: 0 8px; }
+
+/* Toolbar toggle (phones): hides everything but the first row so the whole editor can be seen */
+.paint-bar-toggle { width: 34px; }
+.paint-bar-toggle svg { transition: transform .15s; }
+.paint-tools-bar.collapsed .paint-bar-toggle svg { transform: rotate(180deg); }
+@media (min-width: 768px) { #panel-paint.side-on .paint-bar-toggle { display: none; } }
+@media (max-width: 767px) {
+  .paint-tools-bar.collapsed > :not(:first-child) { display: none !important; }
+  /* options and layers popups: never taller than about a third of the screen, so the sprite stays in view */
+  .paint-pop { max-height: 36vh; max-height: min(36dvh, calc(100dvh - var(--topbar-h, 52px) - 150px)); padding: 10px; }
+  .paint-pop .opt-row { margin-top: 8px; }
+  #wheelCanvas { width: min(168px, 100%); margin-bottom: 8px; }
+  #lassoMain > .hint:first-child, #optFill > .hint { display: none; }
+  .sel-info { margin-top: 8px !important; }
+  .sel-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+  .sel-actions .btn { padding: 5px 6px; font-size: 13px; min-height: 36px; }
+  #lassoXf .hint { font-size: 12px; margin: 0 0 4px; }
+  .xf-fields { margin: 4px 0 2px; }
+}
