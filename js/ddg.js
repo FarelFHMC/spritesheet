@@ -5,7 +5,7 @@
    note boxes, images. Saves in IndexedDB (same database as Save / Load) and downloads as HTML,
    Markdown, plain text or a JSON backup.
    Made by Farelfhmc - Studio Fhilion. MIT License.
-   Part 6 of 6. Classic script (no modules): it shares one scope with the other scripts and must load last. */
+   Part 6 of 8. Classic script (no modules): it shares one scope with the other scripts; sound.js and audio.js load after it. */
 
 /* ---------------------------------------------------------------- data */
 const DDG_FONTS = [
