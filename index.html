@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="author" content="Farelfhmc (Studio Fhilion)">
-<meta name="description" content="Spritesheet Studio v2.8.1 - video, GIF and images to spritesheet, plus a pixel font creator. Made by Farelfhmc, Studio Fhilion.">
+<meta name="description" content="Spritesheet Studio v2.9.0 - video, GIF and images to spritesheet, plus a pixel font creator, a game-document editor and a song and sound-effect studio. Made by Farelfhmc, Studio Fhilion.">
 <title>Spritesheet Studio</title>
 <script>
 /* set the theme before the page paints (saved choice, else the system setting), then the custom colors if they are on */
@@ -29,7 +29,7 @@
 <header class="topbar" id="topbar">
   <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span class="bars" aria-hidden="true"></span></button>
   <span class="page-title" id="menuCurrent">Import</span>
-  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.8.1</span></span>
+  <span class="brand"><span class="brand-name">Spritesheet Studio</span><span class="ver">v2.9.0</span></span>
   <button class="menu-btn settings-btn" id="settingsBtn" type="button" aria-haspopup="dialog" aria-label="Pengaturan" title="Pengaturan"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
   <div class="menu" id="menu">
@@ -49,6 +49,7 @@
             <button class="tab-btn" data-tab="player" role="tab" aria-selected="false">Player</button>
             <button class="tab-btn" data-tab="font" role="tab" aria-selected="false">Font Creator</button>
             <button class="tab-btn" data-tab="ddg" role="tab" aria-selected="false">DDG Editor</button>
+            <button class="tab-btn" data-tab="audio" role="tab" aria-selected="false">Sound Studio</button>
           </div>
         </div>
         <div class="nav-group">
@@ -83,8 +84,8 @@
   <!-- ===================== WHAT'S NEW NOTICE ===================== -->
   <div class="notice" id="newsNotice" role="note" hidden>
     <div class="notice-body">
-      <p class="notice-title">Baru di v2.8.0</p>
-      <p class="notice-text">Tab baru DDG Editor (Document Design Game): editor teks untuk dokumen desain game dengan ukuran teks, ketebalan font, daftar, daftar centang, tabel, kotak catatan, dan templat GDD. Tersimpan di IndexedDB dan bisa diunduh sebagai HTML, Markdown, teks, atau cadangan.</p>
+      <p class="notice-title">Baru di v2.9.0</p>
+      <p class="notice-text">Tab baru Sound Studio: buat lagu dengan piano roll, banyak track, drum, dan efek, lalu buat efek suara (SFX) dengan generator bergaya sfxr. Unduh sebagai WAV atau MIDI, simpan di browser, atau buka berkas MIDI dan .sfxr.</p>
       <p class="notice-by">Dibuat oleh <b>Farelfhmc</b> &middot; Studio Fhilion</p>
     </div>
     <button class="btn btn-secondary" id="newsClose" type="button">Tutup</button>
@@ -732,6 +733,338 @@
     </div>
   </section>
 
+  <!-- ===================== SOUND STUDIO ===================== -->
+  <section class="panel" id="panel-audio" role="tabpanel">
+    <div class="card">
+      <h2 class="card-title">Sound Studio</h2>
+      <p class="hint">Buat lagu dan efek suara (SFX) untuk game-mu. Lagu: piano roll dengan banyak track, drum, dan efek. SFX: generator suara bergaya sfxr. Semua dibuat di dalam aplikasi, tidak ada yang diunggah.</p>
+      <label class="field snd-name">Nama proyek
+        <input type="text" id="sndName" maxlength="60" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-sm" id="sndNewBtn" type="button">Baru</button>
+        <button class="btn btn-primary btn-sm" id="sndSaveBtn" type="button">Simpan</button>
+        <button class="btn btn-secondary btn-sm" id="sndCopyBtn" type="button">Simpan salinan</button>
+        <button class="btn btn-secondary btn-sm" id="sndOpenBtn" type="button">Buka dari berkas&hellip;</button>
+        <button class="btn btn-secondary btn-sm" id="sndDemoBtn" type="button">Lagu contoh</button>
+      </div>
+      <input type="file" id="sndOpenFile" accept=".json,.mid,.midi,.sfxr" hidden>
+      <p class="hint snd-save" id="sndSave"></p>
+      <div class="seg snd-view" role="group" aria-label="Bagian">
+        <button type="button" data-sndview="song" class="on">Lagu</button><button type="button" data-sndview="sfx">SFX</button>
+      </div>
+    </div>
+
+    <div id="sndSongView">
+      <div class="card">
+        <h2 class="card-title">Putar</h2>
+        <div class="snd-transport">
+          <button class="btn btn-primary btn-ic" id="sndPlay" type="button" aria-label="Putar"><svg class="ic-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg><svg class="ic-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+          <button class="btn btn-ic" id="sndStop" type="button" aria-label="Berhenti"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
+          <button class="btn btn-sm snd-tg" id="sndLoop" type="button" aria-pressed="false">Ulang</button>
+          <button class="btn btn-sm snd-tg" id="sndMetro" type="button" aria-pressed="false">Metronom</button>
+          <span class="snd-pos" id="sndPos">1 : 1 &middot; 0:00</span>
+        </div>
+        <canvas class="snd-scope" id="sndScope" aria-hidden="true"></canvas>
+        <div class="grid-2">
+          <label class="field">Tempo (BPM)
+            <input type="number" id="sndBpm" min="30" max="300" step="1" inputmode="numeric">
+          </label>
+          <label class="field"><span>Volume utama (<span id="sndMasterVal">85</span>%)</span>
+            <input type="range" id="sndMaster" min="0" max="100" value="85">
+          </label>
+          <label class="field">Ulang dari bar
+            <input type="number" id="sndLoopFrom" min="1" value="1" step="1" inputmode="numeric">
+          </label>
+          <label class="field">Ulang sampai bar
+            <input type="number" id="sndLoopTo" min="1" value="4" step="1" inputmode="numeric">
+          </label>
+        </div>
+        <p class="hint">Ketuk penggaris di atas piano roll untuk mulai dari titik itu. Spasi = putar / jeda.</p>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Track</h2>
+        <div class="snd-tracks" id="sndTracks"></div>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-sm" id="sndAddSynth" type="button">+ Track nada</button>
+          <button class="btn btn-secondary btn-sm" id="sndAddDrum" type="button">+ Track drum</button>
+        </div>
+        <p class="hint">Ketuk nama untuk memilih track. M = bisukan, S = solo. Maksimal 8 track.</p>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Piano Roll</h2>
+        <div class="snd-bar">
+          <div class="seg" role="group" aria-label="Alat">
+            <button type="button" data-sndtool="draw" class="on">Gambar</button><button type="button" data-sndtool="erase">Hapus</button><button type="button" data-sndtool="select">Pilih</button><button type="button" data-sndtool="pan">Geser</button>
+          </div>
+          <button class="btn btn-sm btn-ic" id="sndUndo" type="button" aria-label="Urungkan" disabled>&#8630;</button>
+          <button class="btn btn-sm btn-ic" id="sndRedo" type="button" aria-label="Ulangi" disabled>&#8631;</button>
+        </div>
+        <div class="snd-bar">
+          <span class="opt-cap">Lebar</span>
+          <button class="btn btn-sm btn-ic" type="button" data-sndzoom="x-" aria-label="Perkecil lebar">&minus;</button>
+          <button class="btn btn-sm btn-ic" type="button" data-sndzoom="x+" aria-label="Perbesar lebar">+</button>
+          <span class="opt-cap">Tinggi</span>
+          <button class="btn btn-sm btn-ic" type="button" data-sndzoom="y-" aria-label="Perkecil tinggi">&minus;</button>
+          <button class="btn btn-sm btn-ic" type="button" data-sndzoom="y+" aria-label="Perbesar tinggi">+</button>
+        </div>
+        <div class="snd-roll-wrap" id="sndRollWrap">
+          <div class="snd-roll-space" id="sndRollSpace"></div>
+          <canvas class="snd-roll" id="sndRoll" aria-label="Piano roll"></canvas>
+        </div>
+        <p class="hint snd-roll-hint" id="sndRollHint"></p>
+        <div class="grid-2">
+          <label class="field">Panjang nada baru
+            <select id="sndLen"><option value="1">1 step</option><option value="2">2 step</option><option value="4" selected>4 step</option><option value="8">8 step</option><option value="16">16 step</option></select>
+          </label>
+          <label class="field">Akor
+            <select id="sndChord">
+              <option value="none">Satu nada</option><option value="maj">Mayor</option><option value="min">Minor</option><option value="sus4">Sus4</option>
+              <option value="dim">Diminished</option><option value="seven">Septima (7)</option><option value="min7">Minor 7</option><option value="oct">Oktaf</option>
+            </select>
+          </label>
+          <label class="field"><span>Kekuatan nada baru (<span id="sndNewVelVal">80</span>%)</span>
+            <input type="range" id="sndNewVel" min="5" max="100" value="80">
+          </label>
+        </div>
+        <label class="field checkbox-field"><input type="checkbox" id="sndLock"> Kunci ke skala</label>
+
+        <div class="snd-sel" id="sndSel" hidden>
+          <b class="snd-sel-title" id="sndSelTitle">Nada terpilih</b>
+          <div class="grid-2">
+            <label class="field"><span id="sndSelPitchLbl">Nada</span>
+              <select id="sndSelPitch"></select>
+            </label>
+            <label class="field">Mulai (step)
+              <input type="number" id="sndSelStart" min="1" step="1" inputmode="numeric">
+            </label>
+            <label class="field">Panjang (step)
+              <input type="number" id="sndSelLen" min="1" step="1" inputmode="numeric">
+            </label>
+            <label class="field"><span>Kekuatan (<span id="sndSelVelVal">80</span>%)</span>
+              <input type="range" id="sndSelVel" min="5" max="100" value="80">
+            </label>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-sm" id="sndSelDup" type="button">Gandakan</button>
+            <button class="btn btn-secondary btn-sm btn-danger" id="sndSelDel" type="button">Hapus nada</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="sndTrackCard">
+        <h2 class="card-title"><span>Pengaturan Track</span> <span class="snd-user snd-sub" id="sndTrackTitle"></span></h2>
+        <label class="field">Nama track
+          <input type="text" id="sndTrName" maxlength="24" spellcheck="false" autocomplete="off">
+        </label>
+        <label class="field" id="sndWaveField">Suara (gelombang)
+          <select id="sndWave">
+            <option value="square">Kotak 50%</option><option value="pulse25">Pulsa 25%</option><option value="pulse125">Pulsa 12,5%</option>
+            <option value="triangle">Segitiga</option><option value="saw">Gergaji</option><option value="sine">Sinus</option>
+            <option value="organ">Organ</option><option value="noise">Derau (noise)</option>
+          </select>
+        </label>
+        <div class="grid-2">
+          <label class="field"><span>Volume (<span id="sndTrVolVal">80</span>%)</span>
+            <input type="range" id="sndTrVol" min="0" max="100" value="80">
+          </label>
+          <label class="field"><span>Kiri &ndash; kanan (<span id="sndTrPanVal">0</span>)</span>
+            <input type="range" id="sndTrPan" min="-100" max="100" value="0">
+          </label>
+        </div>
+        <div id="sndSynthBox">
+          <p class="opt-cap">Amplop volume (ADSR)</p>
+          <div class="grid-2">
+            <label class="field"><span>Attack (<span id="sndEnvAVal">5</span> ms)</span><input type="range" id="sndEnvA" min="1" max="500" value="5"></label>
+            <label class="field"><span>Decay (<span id="sndEnvDVal">120</span> ms)</span><input type="range" id="sndEnvD" min="5" max="1000" value="120"></label>
+            <label class="field"><span>Sustain (<span id="sndEnvSVal">70</span>%)</span><input type="range" id="sndEnvS" min="0" max="100" value="70"></label>
+            <label class="field"><span>Release (<span id="sndEnvRVal">60</span> ms)</span><input type="range" id="sndEnvR" min="5" max="1500" value="60"></label>
+          </div>
+          <p class="opt-cap">Vibrato</p>
+          <div class="grid-2">
+            <label class="field"><span>Kedalaman (<span id="sndVibDVal">0</span> cent)</span><input type="range" id="sndVibD" min="0" max="100" value="0"></label>
+            <label class="field"><span>Kecepatan (<span id="sndVibRVal">5</span> Hz)</span><input type="range" id="sndVibR" min="1" max="12" step="0.5" value="5"></label>
+          </div>
+          <p class="opt-cap">Geser semua nada track ini</p>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-sm" type="button" data-sndtrans="-12">&minus;12</button>
+            <button class="btn btn-secondary btn-sm" type="button" data-sndtrans="-1">&minus;1</button>
+            <button class="btn btn-secondary btn-sm" type="button" data-sndtrans="1">+1</button>
+            <button class="btn btn-secondary btn-sm" type="button" data-sndtrans="12">+12</button>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-sm" id="sndTrDup" type="button">Gandakan track</button>
+          <button class="btn btn-secondary btn-sm" id="sndTrClear" type="button">Kosongkan nada</button>
+          <button class="btn btn-secondary btn-sm btn-danger" id="sndTrDel" type="button">Hapus track</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Pengaturan Lagu</h2>
+        <div class="grid-2">
+          <label class="field">Jumlah bar
+            <input type="number" id="sndBars" min="1" max="64" step="1" inputmode="numeric">
+          </label>
+          <label class="field">Ketukan per bar
+            <select id="sndBpb"><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select>
+          </label>
+          <label class="field">Resolusi grid
+            <select id="sndSpb"><option value="2">1/8 (kasar)</option><option value="4" selected>1/16 (standar)</option><option value="8">1/32 (halus)</option></select>
+          </label>
+          <label class="field"><span>Swing (<span id="sndSwingVal">0</span>%)</span>
+            <input type="range" id="sndSwing" min="0" max="60" value="0">
+          </label>
+          <label class="field">Nada dasar
+            <select id="sndRoot"><option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option><option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option><option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option></select>
+          </label>
+          <label class="field">Skala
+            <select id="sndScale">
+              <option value="chromatic">Kromatik (semua nada)</option><option value="major">Mayor</option><option value="minor">Minor</option>
+              <option value="pentmaj">Pentatonik mayor</option><option value="pentmin">Pentatonik minor</option><option value="blues">Blues</option>
+              <option value="dorian">Dorian</option><option value="harmmin">Minor harmonis</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint">Nada yang masuk skala diberi warna di piano roll. Nyalakan Kunci ke skala supaya nada yang kamu gambar selalu masuk skala. Mengubah resolusi grid atau jumlah bar bisa membulatkan atau memotong nada.</p>
+        <p class="opt-cap">Efek utama</p>
+        <label class="field checkbox-field"><input type="checkbox" id="sndEchoOn"> Gema (echo)</label>
+        <div class="grid-2">
+          <label class="field"><span>Jeda gema (<span id="sndEchoTimeVal">250</span> ms)</span><input type="range" id="sndEchoTime" min="50" max="1000" step="10" value="250"></label>
+          <label class="field"><span>Pengulangan (<span id="sndEchoFbVal">30</span>%)</span><input type="range" id="sndEchoFb" min="0" max="85" value="30"></label>
+          <label class="field"><span>Campuran gema (<span id="sndEchoMixVal">25</span>%)</span><input type="range" id="sndEchoMix" min="0" max="100" value="25"></label>
+        </div>
+        <label class="field checkbox-field"><input type="checkbox" id="sndRevOn"> Reverb (gaung ruangan)</label>
+        <label class="field"><span>Campuran reverb (<span id="sndRevMixVal">20</span>%)</span>
+          <input type="range" id="sndRevMix" min="0" max="100" value="20">
+        </label>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Alat Bar</h2>
+        <p class="hint">Salin sekelompok bar ke tempat lain (untuk mengulang pola), atau kosongkan beberapa bar. Bar tujuan ditimpa. Kalau hasil salinan melewati akhir lagu, jumlah bar ditambah otomatis.</p>
+        <div class="grid-2">
+          <label class="field">Dari bar
+            <input type="number" id="sndBarFrom" min="1" value="1" step="1" inputmode="numeric">
+          </label>
+          <label class="field">Sampai bar
+            <input type="number" id="sndBarTo" min="1" value="1" step="1" inputmode="numeric">
+          </label>
+          <label class="field">Salin ke bar
+            <input type="number" id="sndBarAt" min="1" value="2" step="1" inputmode="numeric">
+          </label>
+        </div>
+        <label class="field checkbox-field"><input type="checkbox" id="sndBarAll" checked> Semua track (kalau mati: hanya track terpilih)</label>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-sm" id="sndBarCopy" type="button">Salin ke bar tujuan</button>
+          <button class="btn btn-secondary btn-sm btn-danger" id="sndBarClear" type="button">Kosongkan bar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Unduh Lagu</h2>
+        <div class="grid-2">
+          <label class="field">Sample rate
+            <select id="sndExRate"><option value="44100" selected>44100 Hz</option><option value="48000">48000 Hz</option><option value="22050">22050 Hz</option></select>
+          </label>
+          <label class="field">Bit
+            <select id="sndExBits"><option value="16" selected>16-bit</option><option value="8">8-bit (retro)</option></select>
+          </label>
+          <label class="field">Kanal
+            <select id="sndExCh"><option value="stereo" selected>Stereo</option><option value="mono">Mono</option></select>
+          </label>
+        </div>
+        <label class="field checkbox-field"><input type="checkbox" id="sndExLoop"> Loop mulus (ekor gema dilipat ke awal)</label>
+        <label class="field checkbox-field"><input type="checkbox" id="sndExNorm" checked> Normalisasi volume</label>
+        <div class="btn-col">
+          <button class="btn btn-primary" id="sndDlWav" type="button">Unduh WAV</button>
+          <button class="btn btn-primary" id="sndDlMid" type="button">Unduh MIDI</button>
+          <button class="btn btn-secondary" id="sndDlJson" type="button">Unduh Cadangan Proyek</button>
+        </div>
+        <p class="hint" style="margin-top:12px">WAV memakai track yang tidak dibisukan (dan solo, kalau ada). MIDI memuat semua track dan tidak membawa swing. Cadangan proyek (.json) berisi lagu dan semua SFX, dan bisa dibuka lagi lewat Buka dari berkas.</p>
+      </div>
+    </div>
+
+    <div id="sndSfxView" hidden>
+      <div class="card">
+        <h2 class="card-title">Generator SFX</h2>
+        <p class="hint">Pilih jenis suara untuk titik awal, lalu ubah sesukamu di bagian Parameter. Acak dan Mutasi membuat variasi; riwayatnya bisa diurungkan.</p>
+        <div class="sfx-gen">
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="coin">Koin</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="laser">Tembakan</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="explosion">Ledakan</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="power">Power-up</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="hit">Kena pukul</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="jump">Lompat</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="blip">Pilih / klik</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-sfxgen="random">Acak</button>
+          <button class="btn btn-secondary btn-sm" type="button" id="sfxMutate">Mutasi</button>
+        </div>
+        <canvas class="sfx-wave" id="sfxWave" aria-label="Bentuk gelombang"></canvas>
+        <p class="hint" id="sfxInfo"></p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="sfxPlay" type="button">Putar</button>
+          <button class="btn btn-sm btn-ic" id="sfxUndo" type="button" aria-label="Urungkan" disabled>&#8630;</button>
+          <button class="btn btn-sm btn-ic" id="sfxRedo" type="button" aria-label="Ulangi" disabled>&#8631;</button>
+        </div>
+        <label class="field checkbox-field"><input type="checkbox" id="sfxAuto" checked> Putar otomatis saat diubah</label>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Parameter</h2>
+        <div class="opt-row"><span class="opt-cap">Gelombang</span>
+          <div class="seg" role="group" aria-label="Gelombang">
+            <button type="button" data-sfxwave="0" class="on">Kotak</button><button type="button" data-sfxwave="1">Gergaji</button><button type="button" data-sfxwave="2">Sinus</button><button type="button" data-sfxwave="3">Derau</button>
+          </div>
+        </div>
+        <div id="sfxParams" class="sfx-params"></div>
+        <label class="field"><span>Volume (<span id="sfxVolVal">50</span>%)</span>
+          <input type="range" id="sfxVol" min="0" max="100" value="50">
+        </label>
+        <label class="field checkbox-field"><input type="checkbox" id="sfxNorm" checked> Normalisasi (suara dibuat sekeras mungkin tanpa pecah)</label>
+        <label class="field checkbox-field"><input type="checkbox" id="sfxRev"> Putar terbalik (reverse)</label>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Bank SFX</h2>
+        <p class="hint">Simpan beberapa suara di sini. Bank ikut tersimpan bersama proyek dan bisa diunduh sekaligus sebagai ZIP.</p>
+        <label class="field">Nama SFX
+          <input type="text" id="sfxName" maxlength="40" spellcheck="false" autocomplete="off">
+        </label>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" id="sfxBankAdd" type="button">Tambah ke bank</button>
+        </div>
+        <div class="fm-list" id="sfxBank"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Unduh SFX</h2>
+        <div class="grid-2">
+          <label class="field">Sample rate
+            <select id="sfxExRate"><option value="44100" selected>44100 Hz</option><option value="22050">22050 Hz</option><option value="11025">11025 Hz (retro)</option></select>
+          </label>
+          <label class="field">Bit
+            <select id="sfxExBits"><option value="16" selected>16-bit</option><option value="8">8-bit (retro)</option></select>
+          </label>
+        </div>
+        <div class="btn-col">
+          <button class="btn btn-primary" id="sfxDlWav" type="button">Unduh WAV</button>
+          <button class="btn btn-secondary" id="sfxDlSfxr" type="button">Unduh .sfxr</button>
+          <button class="btn btn-secondary" id="sfxDlZip" type="button">Unduh semua bank (ZIP)</button>
+        </div>
+        <p class="hint" style="margin-top:12px">Berkas .sfxr bisa dibuka di alat sfxr. Unduh semua memuat satu WAV per suara di bank, ditambah sfx-bank.json yang bisa dibuka lagi lewat Buka dari berkas.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Proyek Audio Tersimpan</h2>
+      <p class="hint">Proyek yang kamu simpan muncul di sini dan juga di folder Audio di tab Simpan &amp; Buka.</p>
+      <div class="fm-list" id="sndList"></div>
+    </div>
+  </section>
+
   <!-- ===================== MERGE ===================== -->
   <section class="panel" id="panel-merge" role="tabpanel">
     <div class="card">
@@ -899,6 +1232,7 @@
           <button class="btn btn-primary" id="saveSheetBtn" type="button">Simpan Spritesheet</button>
           <button class="btn btn-primary" id="saveFontBtn" type="button">Simpan Font</button>
           <button class="btn btn-primary" id="saveDdgBtn" type="button">Simpan Dokumen DDG</button>
+          <button class="btn btn-primary" id="saveAudioBtn" type="button">Simpan Proyek Audio</button>
         </div>
         <p class="hint fm-hint" id="saveHint"></p>
       </div>
@@ -931,7 +1265,7 @@
 </main>
 
 <footer class="app-footer">
-  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.8.1 &middot; MIT
+  <span>Dibuat oleh</span> <b>Farelfhmc</b> &middot; Studio Fhilion &middot; v2.9.0 &middot; MIT
 </footer>
 
 
@@ -980,5 +1314,7 @@
 <script src="js/extras.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/ddg.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/audio.js"></script>
 </body>
 </html>

@@ -2,6 +2,45 @@
 
 [English](CHANGELOG.md) | Bahasa Indonesia
 
+## 2.9.0 — 2026-11-25
+### Ditambah
+- **Sound Studio**: tab baru (menu → Edit, setelah DDG Editor) untuk membuat lagu dan efek suara. Ada dua bagian, **Lagu** dan **SFX**, nama proyek, **Baru**, **Simpan**, **Simpan salinan**, **Buka dari berkas…**, dan **Lagu contoh**. Semuanya dibuat di dalam aplikasi dengan Web Audio bawaan browser, tanpa library dan tidak ada yang diunggah.
+- **Lagu: piano roll.**
+  - 72 nada (C1 – B6), digambar di kanvas yang bisa digulir secara bawaan dan hanya menggambar bagian yang terlihat, jadi lagu panjang tetap lancar di ponsel.
+  - Alat: **Gambar** (ketuk untuk membuat nada, seret ke kanan untuk memanjangkannya), **Hapus**, **Pilih** (pindahkan nada, seret ujung kanannya untuk mengubah panjang), dan **Geser**. Dua jari selalu menggeser tampilan; roda mouse menggeser dan Ctrl + roda memperbesar. **Lebar** / **Tinggi** memperbesar atau memperkecil grid.
+  - Ketuk tuts piano untuk mendengarnya. Ketuk penggaris untuk memilih dari mana pemutaran dimulai. Tampilan mengikuti posisi putar.
+  - *Panjang nada baru* (1–16 step), *Kekuatan nada baru*, **Akor** (mayor, minor, sus4, diminished, septima, minor 7, oktaf), **Kunci ke skala**, dan panel untuk nada terpilih (nada, mulai, panjang, kekuatan, gandakan, hapus).
+  - Nada track lain tampak samar di belakang track yang sedang dikerjakan.
+  - **Urungkan / Ulangi** 60 langkah; Spasi (putar / jeda), Delete, Ctrl+Z, dan Ctrl+Y bekerja selama tab terbuka.
+- **Lagu: track dan suara.**
+  - Sampai **8 track**. **Track nada** punya 8 suara (*Kotak 50%*, *Pulsa 25%*, *Pulsa 12,5%*, *Segitiga*, *Gergaji*, *Sinus*, *Organ*, *Derau*), amplop volume (*Attack / Decay / Sustain / Release*), dan *Vibrato*. **Track drum** punya 8 drum (kick, snare, hi-hat tutup dan buka, clap, tom rendah dan tinggi, crash), semuanya dibuat oleh synth, tanpa sampel.
+  - Tiap track: *Volume*, *Kiri – kanan*, **M** (bisukan), **S** (solo), gandakan, kosongkan, hapus, dan **Geser semua nada** ±1 atau ±12 semiton.
+  - Pengaturan lagu: *Tempo* 30–300 BPM, *Jumlah bar* 1–64 (paling banyak 2048 step), *Ketukan per bar* 2–8, *Resolusi grid* 1/8, 1/16, atau 1/32, *Swing* 0–60%, *Nada dasar* dan *Skala* (8 skala, diberi warna di piano roll), volume utama, **Gema (echo)**, dan **Reverb**. Perubahan yang akan membulatkan atau memotong nada bertanya dulu dan bisa diurungkan.
+  - **Alat Bar**: salin sekelompok bar (semua track atau hanya track terpilih) ke tempat lain, atau kosongkan sekelompok bar. Jumlah bar bertambah sendiri kalau salinan melewati akhir.
+- **Lagu: pemutaran.** **Putar / Jeda**, **Berhenti**, **Ulang** dengan rentang bar, **Metronom**, posisi yang berjalan, osiloskop kecil. Lagu diputar dengan penjadwal look-ahead, jadi tempo, bisukan / solo, volume, efek, dan nada bisa diubah selagi diputar. Pemutaran berhenti saat kamu meninggalkan tab atau halaman disembunyikan.
+- **Lagu: unduhan dan berkas.**
+  - **WAV** (44100 / 48000 / 22050 Hz, 16 atau 8 bit, stereo atau mono). Pilihan: **Loop mulus** (ekor gema dan reverb dilipat ke awal) dan **Normalisasi volume**. Dirender offline dengan kode yang sama dengan yang memutar lagu, jadi hasil berkasnya terdengar seperti pratinjau. Lagu sampai 10 menit.
+  - **MIDI** (.mid, format 1, 480 tick per ketukan): satu track MIDI per track lagu, drum di kanal 10, volume dan pan, tempo dan birama. Swing tidak ikut ditulis.
+  - **Cadangan Proyek** (.sndproj.json): lagu dan semua SFX.
+  - **Buka dari berkas…** membaca **MIDI** (.mid / .midi: running status, tempo, birama, sampai 8 track, nada dibulatkan ke grid 1/16, drum dipetakan ke 8 drum, nada di luar C1 – B6 dipindah per oktaf, hanya tempo pertama yang dipakai; pewaktu SMPTE ditolak dengan pesan), **.sfxr**, Cadangan Proyek, dan `sfx-bank.json`. Berkas yang tidak bisa dibaca memberi pesan yang jelas dan tidak mengubah apa pun.
+  - **Lagu contoh** pendek buatan sendiri (A minor, 4 track) untuk mencoba studio ini.
+- **SFX: generator efek suara** bergaya sfxr, ditulis khusus untuk aplikasi ini.
+  - **Koin**, **Tembakan**, **Ledakan**, **Power-up**, **Kena pukul**, **Lompat**, **Pilih / klik**, dan **Acak** membuat titik awal (suara acak selalu terdengar dan pendek); **Mutasi** mengubah suara yang sekarang sedikit saja.
+  - **Parameter:** *Gelombang* (Kotak, Gergaji, Sinus, Derau) dan 22 slider dalam 8 kelompok (Amplop, Frekuensi, Vibrato, Arpeggio, Lebar pulsa, Ulang suara, Filter, Phaser), ditambah *Volume*, *Normalisasi*, dan *Putar terbalik*.
+  - Bentuk gelombang digambar beserta panjang dan puncaknya, dan *Putar otomatis saat diubah* memutarnya setiap kali ada perubahan. **Urungkan / Ulangi** 40 langkah.
+  - **Bank SFX:** sampai 64 suara, masing-masing dengan **Putar**, **Muat** (ke editor), **Ganti isi**, **Ubah nama**, **Unduh WAV**, dan **Hapus SFX**. Bank ikut tersimpan bersama proyek.
+  - **Unduh:** **WAV** (44100 / 22050 / 11025 Hz, 16 atau 8 bit), **.sfxr** (versi 102), dan **seluruh bank** sebagai satu ZIP (satu WAV per suara ditambah `sfx-bank.json`).
+- **Simpan & Buka: folder Audio baru.** **Simpan Proyek Audio** menyimpan lagu dan bank SFX di IndexedDB (tidak ada yang diunggah). Folder **Audio** dibuatkan otomatis, juga untuk yang sudah punya berkas tersimpan. Berkasnya bisa dibuka, ditimpa, diganti nama, dipindah, dan dihapus seperti yang lain. Tab Sound Studio juga punya daftar proyek tersimpan sendiri. **Draf** tersimpan otomatis selagi kamu bekerja dan kembali setelah refresh atau macet; Mode Pemulihan tidak mencakupnya (seperti DDG Editor).
+- Bahasa Indonesia dan Inggris untuk semua yang baru, termasuk teks yang dibuat lewat kode, dan keduanya berganti seketika mengikuti pengaturan bahasa.
+### Diubah
+- Versi sekarang 2.9.0. Pemberitahuan "Baru di ..." punya teks baru, jadi muncul sekali lagi.
+- Pengganti bahasa tidak lagi menerjemahkan nama yang kamu ketik sendiri (nama track, nama SFX), jadi track bernama "Bass" atau "Lead" tetap seperti tulisanmu.
+- Kode: dua berkas baru, `js/sound.js` (mesin: model dan pembersihan lagu, synth, drum, efek, pemutar, render offline, WAV, MIDI, generator sfxr) dan `js/audio.js` (tab: piano roll, editor SFX, bank, simpan dan draf). `js/core.js` (versi), `js/tabs.js` (membuka dan meninggalkan tab), `js/storage.js` (jenis berkas dan folder *audio*), `js/extras.js` (nama yang diketik tidak diterjemahkan), `index.html`, dan `style.css` berubah sedikit. `js/paint.js` dan `js/ddg.js` tidak ada perubahan kode. Skrip sekarang delapan dan dimuat berurutan: `core.js`, `tabs.js`, `paint.js`, `extras.js`, `storage.js`, `ddg.js`, `sound.js`, `audio.js`. README dan Changelog diperbarui.
+### Perlu diketahui
+- Semua yang tidak bisa dilakukan browser menjadi pesan, bukan macet: tidak ada Web Audio, berkas rusak, MIDI dengan pewaktu SMPTE, lagu yang terlalu panjang.
+- WAV yang dirender browser mulai sekitar 6 ms terlambat, karena kompresor bawaan browser melihat ke depan sejauh itu. Tidak terdengar, dan *Loop mulus* tidak terpengaruh.
+- Dukungan `.sfxr` mengikuti susunan berkas alat sfxr asli (versi 100 – 102). Diuji di sini dengan menulis dan membaca kembali berkasnya sendiri, belum dengan berkas dari program lain.
+
 ## 2.8.1 — 2026-11-22
 ### Diperbaiki
 - **Paint Sprite: bar frame keluar dari kotaknya kalau frame banyak.** Setelah frame melebihi jumlah tertentu, bar di bawah melebar melewati layar dan frame tidak bisa digeser. Sekarang bar tetap pada lebarnya dan daftar frame bisa digeser ke samping (geser dengan jari, atau pakai roda mouse), dan frame yang dipilih tetap dibawa ke tengah layar.

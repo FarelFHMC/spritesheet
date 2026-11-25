@@ -2,6 +2,45 @@
 
 English | [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.9.0 — 2026-11-25
+### Added
+- **Sound Studio**: a new tab (menu → Edit, after DDG Editor) for making songs and sound effects. It has two parts, **Song** and **SFX**, a project name, **New**, **Save**, **Save a copy**, **Open from file…** and a **Demo song**. Everything is made inside the app with the browser's own Web Audio, with no library and nothing uploaded.
+- **Song: piano roll.**
+  - 72 notes (C1 – B6), drawn on a canvas that scrolls natively and only paints what is visible, so long songs stay smooth on a phone.
+  - Tools: **Draw** (tap to make a note, drag right to lengthen it), **Erase**, **Select** (move a note, drag its right end to resize it) and **Pan**. Two fingers always scroll the view; the mouse wheel scrolls and Ctrl + wheel zooms. **Width** / **Height** zoom the grid.
+  - Tap a piano key to hear it. Tap the ruler to choose where playing starts. The view follows the play position.
+  - *New note length* (1–16 steps), *New note velocity*, **Chords** (major, minor, sus4, diminished, 7th, minor 7th, octave), **Lock to scale**, and a panel for the selected note (pitch, start, length, velocity, duplicate, delete).
+  - Notes of the other tracks show faintly behind the current track.
+  - **Undo / Redo** with 60 steps; Space (play / pause), Delete, Ctrl+Z and Ctrl+Y work while the tab is open.
+- **Song: tracks and sound.**
+  - Up to **8 tracks**. A **note track** has 8 sounds (*Square 50%*, *Pulse 25%*, *Pulse 12.5%*, *Triangle*, *Sawtooth*, *Sine*, *Organ*, *Noise*), a volume envelope (*Attack / Decay / Sustain / Release*) and *Vibrato*. A **drum track** has 8 drums (kick, snare, closed and open hi-hat, clap, low and high tom, crash), all made by the synth, no samples.
+  - Per track: *Volume*, *Left – right*, **M** (mute), **S** (solo), duplicate, clear, delete, and **Shift every note** by ±1 or ±12 semitones.
+  - Song settings: *Tempo* 30–300 BPM, *Number of bars* 1–64 (at most 2048 steps), *Beats per bar* 2–8, *Grid resolution* 1/8, 1/16 or 1/32, *Swing* 0–60%, *Root note* and *Scale* (8 scales, tinted in the piano roll), master volume, **Echo** and **Reverb**. A change that would round or cut notes asks first and can be undone.
+  - **Bar Tools**: copy a range of bars (all tracks or only the selected one) to another place, or clear a range. The number of bars grows by itself when a copy goes past the end.
+- **Song: playing.** **Play / Pause**, **Stop**, **Loop** with a bar range, **Metronome**, a live position, a small oscilloscope. Songs play with a look-ahead scheduler, so tempo, mute / solo, volumes, effects and notes can be changed while it plays. Playback stops when you leave the tab or the page is hidden.
+- **Song: downloads and files.**
+  - **WAV** (44100 / 48000 / 22050 Hz, 16 or 8 bit, stereo or mono). Options: **Seamless loop** (the echo and reverb tail is folded onto the start) and **Normalize volume**. Rendered offline with the same code that plays the song, so the file sounds like the preview. Songs up to 10 minutes.
+  - **MIDI** (.mid, format 1, 480 ticks per beat): one MIDI track per song track, drums on channel 10, volume and pan, tempo and time signature. Swing is not written.
+  - **Project Backup** (.sndproj.json): the song and every SFX.
+  - **Open from file…** reads **MIDI** (.mid / .midi: running status, tempo, time signature, up to 8 tracks, notes rounded to a 1/16 grid, drums mapped to the 8 drums, notes outside C1 – B6 moved by octaves, only the first tempo used; SMPTE timing is refused with a message), **.sfxr**, a Project Backup and `sfx-bank.json`. A file that cannot be read gives a clear message and changes nothing.
+  - A short original **Demo song** (A minor, 4 tracks) to try the studio.
+- **SFX: sound-effect generator** in the style of sfxr, written for this app.
+  - **Coin**, **Laser shot**, **Explosion**, **Power-up**, **Hit / hurt**, **Jump**, **Select / click** and **Random** make a starting point (random sounds are always audible and short); **Mutate** changes the current sound a little.
+  - **Parameters:** *Waveform* (Square, Sawtooth, Sine, Noise) and 22 sliders in 8 groups (Envelope, Frequency, Vibrato, Pitch change, Pulse width, Repeat, Filters, Phaser), plus *Volume*, *Normalize* and *Play backwards*.
+  - The waveform is drawn with its length and peak, and *Play automatically when changed* plays it after each change. **Undo / Redo** with 40 steps.
+  - **SFX Bank:** up to 64 sounds, each with **Play**, **Load** (into the editor), **Overwrite**, **Rename**, **Download WAV** and **Delete**. The bank is saved with the project.
+  - **Download:** **WAV** (44100 / 22050 / 11025 Hz, 16 or 8 bit), **.sfxr** (version 102) and **the whole bank** as one ZIP (a WAV per sound plus `sfx-bank.json`).
+- **Save / Load: a new Audio folder.** **Save Audio Project** keeps the song and the SFX bank in IndexedDB (nothing is uploaded). The **Audio** folder is created for you, also for people who already have saved files. Files open, overwrite, rename, move and delete like the others. The Sound Studio tab also has its own list of saved projects. A **draft** is autosaved while you work and comes back after a refresh or crash; Recovery Mode does not include it (like the DDG Editor).
+- English and Indonesian for everything new, including texts made in code, and they switch at once with the language setting.
+### Changed
+- The version is now 2.9.0. The "What's new" notice has new text, so it shows once more.
+- The language switcher no longer translates names you type yourself (track names, SFX names), so a track called "Bass" or "Lead" stays as you wrote it.
+- Source: two new files, `js/sound.js` (engine: song model and cleaning, synth, drums, effects, player, offline render, WAV, MIDI, sfxr generator) and `js/audio.js` (the tab: piano roll, SFX editor, bank, save and draft). `js/core.js` (version), `js/tabs.js` (opening and leaving the tab), `js/storage.js` (the *audio* file type and folder), `js/extras.js` (names you type are not translated), `index.html` and `style.css` changed a little. `js/paint.js` and `js/ddg.js` have no code changes. The scripts are now eight and load in this order: `core.js`, `tabs.js`, `paint.js`, `extras.js`, `storage.js`, `ddg.js`, `sound.js`, `audio.js`. README and Changelog updated.
+### Good to know
+- Everything the browser does not know how to do stays a message, not a crash: no Web Audio, a damaged file, a MIDI with SMPTE timing, a song that is too long.
+- A WAV rendered by the browser starts about 6 ms late, because the browser's own compressor looks ahead by that much. It is not audible, and *Seamless loop* is not affected.
+- The `.sfxr` support follows the file layout of the original sfxr tool (versions 100 – 102). It was tested here by writing and reading back its own files, not with files from other programs.
+
 ## 2.8.1 — 2026-11-22
 ### Fixed
 - **Paint Sprite: the frame bar broke out of its box with many frames.** Once there were more than a certain number of frames, the bottom bar grew wider than the screen and the frames could not be scrolled. The bar now keeps its width and the frame strip scrolls sideways (swipe it, or use the mouse wheel), and the selected frame is still brought into view.
